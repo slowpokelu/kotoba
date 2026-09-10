@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="A Japanese word puzzle. Four kana, eight guesses. Daily and practice modes, in English or Japanese." />
+    <title>ことば — 四文字のパズル</title>
+    <link rel="icon" type="image/svg+xml" href="%BASE_URL%favicon.svg" />
+    <script>
+      (function () {
+        var theme = 'system';
+        try {
+          var saved = localStorage.getItem('kotoba:theme');
+          if (['system', 'light', 'dark'].includes(saved)) theme = saved;
+        } catch (e) {}
+        document.documentElement.dataset.theme = theme === 'system'
+          ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+          : theme;
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <noscript>JavaScriptを有効にしてください。Enable JavaScript to play.</noscript>
+    <script type="module" src="/pages-entry.tsx"></script>
+  </body>
+</html>
