@@ -1,4 +1,4 @@
-This game uses a four-kana extract of the EDICT2 dictionary.
+This game uses three-to-six-kana extracts of the EDICT2 dictionary.
 Copyright James William BREEN and the Electronic Dictionary Research and
 Development Group (EDRDG).
 
@@ -8,10 +8,11 @@ License and conditions: https://www.edrdg.org/edrdg/licence.html
 Creative Commons Attribution-ShareAlike 4.0:
 https://creativecommons.org/licenses/by-sa/4.0/
 
-Modifications: selected four-character readings, normalized katakana to
+Modifications: selected three-to-six-character readings, normalized katakana to
 hiragana, removed reading annotations, deduplicated readings, extracted
 unambiguous spelling-to-reading mappings. The derived dictionary data is
 distributed under CC BY-SA 4.0. EDRDG does not endorse this application.
 
 The source project includes scripts/update-dictionary.mjs to rebuild this
-extract from the current EDICT2 release. Run it monthly and before release.
+extracts from EDICT2. The --practice option updates the 3/5/6-kana extract
+separately, without changing the existing four-kana dictionary.

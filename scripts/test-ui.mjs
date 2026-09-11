@@ -192,7 +192,7 @@ await click('遊び方');
 assert.ok(document.querySelector('[role="dialog"]'));
 await click('閉じる');
 await click('練習');
-assert.ok(text().includes('もう一問、気軽に。'));
+assert.ok(document.querySelector('.length-picker'));
 await type('にん');
 await click('今日の一問');
 assert.equal(document.querySelector('#guess').value, 'がっこ');
@@ -374,6 +374,109 @@ await click('Close');
 await unmount();
 await mount();
 assert.equal(document.documentElement.lang, 'en', 'language survives reload');
+await click('Practice');
+const originalFour = localStorage.getItem('kotoba:v1:practice');
+const chooseLength = async (n) => {
+  const radio = document.querySelector(
+    `[role="radio"][aria-label="${n} kana"]`,
+  );
+  assert.ok(radio, `length option ${n} exists`);
+  await act(async () => radio.click());
+};
+for (const n of [3, 5, 6]) {
+  await chooseLength(n);
+  assert.equal(document.querySelectorAll('.board .tile').length, n * 8);
+  assert.equal(document.querySelectorAll('.tile.current').length, n);
+  assert.equal(localStorage.getItem('kotoba:practice-length'), String(n));
+  await type('あい');
+  await submit();
+  assert.ok(text().includes(`Enter exactly ${n} hiragana.`));
+  const key = `kotoba:v1:practice:${n}`;
+  const round = JSON.parse(localStorage.getItem(key));
+  assert.equal(round.guesses.length, 0);
+  assert.equal(round.answer.length, n);
+  await type(round.answer);
+  await click('Daily');
+  assert.equal(document.querySelectorAll('.board .tile').length, 32);
+  assert.equal(document.querySelector('.length-picker'), null);
+  await click('Practice');
+  assert.equal(
+    document.querySelector('#guess').value,
+    round.answer,
+    'draft survives mode switch',
+  );
+  await submit();
+  await chooseLength(n === 3 ? 5 : 3);
+  assert.equal(
+    document.querySelectorAll('.board .tile').length,
+    n * 8,
+    'no length changes mid-reveal',
+  );
+  await settle();
+  assert.ok(
+    document.querySelector('.result-card h2').textContent,
+    'kanji reveal exists',
+  );
+  await click('Copy result');
+  assert.ok(
+    document
+      .querySelector('.share-fallback')
+      .value.includes(`Practice · ${n} kana`),
+  );
+  await click('Play again');
+  assert.equal(document.querySelectorAll('.board .tile').length, n * 8);
+  assert.notEqual(JSON.parse(localStorage.getItem(key)).answer, round.answer);
+  await type('あ');
+}
+await chooseLength(4);
+assert.equal(
+  localStorage.getItem('kotoba:v1:practice'),
+  originalFour,
+  'old four-kana save unchanged',
+);
+await chooseLength(3);
+assert.equal(
+  document.querySelector('#guess').value,
+  'あ',
+  'length-specific draft restored',
+);
+await chooseLength(6);
+await click('Settings');
+await click('Export');
+const multiLengthBackup = JSON.parse(await exported.text());
+assert.equal(multiLengthBackup.practiceLength, 6);
+for (const id of ['practice', 'practice:3', 'practice:5', 'practice:6'])
+  assert.ok(
+    multiLengthBackup.games.some((g) => g.id === id),
+    `backup includes ${id}`,
+  );
+await click('Close');
+await unmount();
+localStorage.clear();
+await mount();
+await click('設定');
+await importFile(JSON.stringify(multiLengthBackup));
+await click('記録を追加する');
+await click('Close');
+await click('Practice');
+assert.equal(
+  document.querySelectorAll('.board .tile').length,
+  48,
+  'import restores length choice',
+);
+assert.equal(
+  document.querySelector('#guess').value,
+  'あ',
+  'import restores practice draft',
+);
+await unmount();
+await mount();
+await click('Practice');
+assert.equal(
+  document.querySelectorAll('.board .tile').length,
+  48,
+  'length survives reload',
+);
 await unmount();
 URL.createObjectURL = oldURL;
 URL.revokeObjectURL = oldRevoke;

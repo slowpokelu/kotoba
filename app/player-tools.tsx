@@ -10,8 +10,7 @@ import {
   DialogClose,
 } from '@/components/ui/dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { answers } from '@/lib/answers.mjs';
-import dictionary from '@/lib/dictionary.json';
+import { allAnswers as answers, allValid as valid } from '@/lib/word-pools.mjs';
 import {
   THEME_KEY,
   themes,
@@ -21,7 +20,7 @@ import {
   parseBackup,
   mergeGames,
 } from '@/lib/profile.mjs';
-import { localDay } from '@/lib/game.mjs';
+import { localDay, PRACTICE_LENGTH_KEY } from '@/lib/game.mjs';
 import { useLanguage } from './language';
 
 type Game = {
@@ -37,19 +36,21 @@ type Backup = {
   version: number;
   theme: string;
   language?: string;
+  practiceLength?: number;
   games: Game[];
 };
-const valid = new Set(dictionary.readings);
 
 export function PlayerTools({
   game,
   day,
   busy,
+  practiceLength,
   onImport,
 }: {
   game: Game | null;
   day: string;
   busy: boolean;
+  practiceLength: number;
   onImport: () => void;
 }) {
   const { language, setLanguage, t } = useLanguage();
@@ -110,6 +111,7 @@ export function PlayerTools({
         exportedAt: new Date().toISOString(),
         theme,
         language,
+        practiceLength,
         games,
       };
       const url = URL.createObjectURL(
@@ -160,6 +162,8 @@ export function PlayerTools({
       ]);
       writes.push([THEME_KEY, pending.theme]);
       if (pending.language) writes.push(['kotoba:language', pending.language]);
+      if (pending.practiceLength)
+        writes.push([PRACTICE_LENGTH_KEY, String(pending.practiceLength)]);
       for (const [key, value] of writes) {
         const old = localStorage.getItem(key);
         if (old === value) continue;

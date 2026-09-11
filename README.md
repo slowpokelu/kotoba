@@ -2,7 +2,7 @@
 
 [Play](https://slowpokelu.github.io/kotoba/)
 
-A Japanese word puzzle: four kana, eight guesses. One word a day, plus unlimited practice.
+A Japanese word puzzle with eight guesses. One four-kana word a day, plus unlimited practice with three, four, five or six kana.
 
 - Japanese and English interface.
 - Light, dark and system themes.
@@ -35,6 +35,10 @@ Progress is local to each browser and site address. To move it, use Settings →
 
 Daily puzzles follow your local date. Players on the same date get the same word. Practice does not affect daily statistics.
 
+Each practice length keeps its own saved round. The length choice and all rounds are included in backups. Small kana and ー each count as one tile.
+
 ## Dictionary
 
-Accepted readings are derived from [JMdict / EDICT](https://www.edrdg.org/wiki/index.php/JMdict-EDICT_Dictionary_Project), © EDRDG, under [CC BY-SA 4.0](https://www.edrdg.org/edrdg/licence.html). The data is filtered and converted to four-kana readings. See `public/dictionary-license.txt` for attribution and the game’s help panel for details.
+Accepted readings are derived from [JMdict / EDICT](https://www.edrdg.org/wiki/index.php/JMdict-EDICT_Dictionary_Project), © EDRDG, under [CC BY-SA 4.0](https://www.edrdg.org/edrdg/licence.html). The data is filtered and converted to three-to-six-kana readings. See `public/dictionary-license.txt` for attribution and the game’s help panel for details.
+
+`node scripts/update-dictionary.mjs /path/to/edict2.gz --practice` regenerates only the additional 3/5/6-kana dictionary and verifies its curated reading/spelling pairs. Keep `lib/answers.mjs` in its original order to preserve the daily schedule.

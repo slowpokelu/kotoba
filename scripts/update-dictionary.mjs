@@ -1,9 +1,12 @@
-// EDICT2 → four-character kana readings. Derived data: CC BY-SA 4.0 (EDRDG).
+// EDICT2 → kana readings. --practice updates only the new 3/5/6-kana pools.
 // Run monthly, and before releasing an update. Existing answer order stays fixed.
 import { readFile, writeFile } from 'node:fs/promises';
 import { gunzipSync } from 'node:zlib';
 import { answers } from '../lib/answers.mjs';
-const source = process.argv[2];
+import { extraAnswers } from '../lib/practice-answers.mjs';
+const practice = process.argv.includes('--practice');
+const lengths = practice ? [3, 5, 6] : [4];
+const source = process.argv.slice(2).find((arg) => !arg.startsWith('--'));
 const compressed = source
   ? await readFile(source)
   : new Uint8Array(
@@ -27,21 +30,34 @@ for (const line of data.split('\n')) {
     .map((s) => s.replace(/\([^)]*\)/g, ''));
   const kana = (bracket ? bracket[1].split(';') : forms)
     .map((s) => normalize(s.replace(/\([^)]*\)/g, '')))
-    .filter((s) => /^[ぁ-ゖー]{4}$/u.test(s));
+    .filter((s) => /^[ぁ-ゖー]+$/u.test(s) && lengths.includes(s.length));
   for (const r of kana) readings.add(r);
   for (const form of forms) {
-    if (!aliases.has(form)) aliases.set(form, new Set());
-    for (const r of kana) aliases.get(form).add(r);
+    for (const r of kana) {
+      const key = practice ? `${r.length}:${form}` : form;
+      if (!aliases.has(key)) aliases.set(key, new Set());
+      aliases.get(key).add(r);
+    }
   }
 }
-const missing = answers.filter((a) => !readings.has(a.reading));
+const curated = practice ? extraAnswers : answers;
+const missing = curated.filter(
+  (a) =>
+    !readings.has(a.reading) ||
+    (practice &&
+      a.reading !== normalize(a.spelling) &&
+      !aliases.get(`${a.reading.length}:${a.spelling}`)?.has(a.reading)),
+);
 if (missing.length)
   throw new Error(
     'Curated answers absent from dictionary: ' + JSON.stringify(missing),
   );
 const kanji = Object.fromEntries(
   [...aliases]
-    .filter(([k, v]) => /[^ぁ-ゖァ-ヶー]/u.test(k) && v.size === 1)
+    .filter(
+      ([k, v]) =>
+        /[^ぁ-ゖァ-ヶー]/u.test(practice ? k.slice(2) : k) && v.size === 1,
+    )
     .map(([k, v]) => [k, [...v][0]]),
 );
 const output = {
@@ -52,9 +68,12 @@ const output = {
   aliases: kanji,
 };
 await writeFile(
-  new URL('../lib/dictionary.json', import.meta.url),
+  new URL(
+    practice ? '../lib/practice-dictionary.json' : '../lib/dictionary.json',
+    import.meta.url,
+  ),
   JSON.stringify(output),
 );
 console.log(
-  `Dictionary: ${readings.size} readings, ${Object.keys(kanji).length} spellings; ${answers.length} curated answers verified.`,
+  `Dictionary: ${readings.size} readings, ${Object.keys(kanji).length} spellings; ${curated.length} curated answers verified.`,
 );

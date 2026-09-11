@@ -248,6 +248,70 @@ a {
   max-width: 256px;
   margin: 0 auto 18px;
 }
+.board-column .game-heading:has(.length-picker) {
+  max-width: 320px;
+}
+.length-picker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--muted-foreground);
+}
+.length-options[data-slot] {
+  display: flex;
+  width: auto;
+  gap: 4px;
+}
+.length-choice {
+  position: relative;
+  cursor: pointer;
+}
+.length-choice > span {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  min-height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  font-variant-numeric: tabular-nums;
+  color: var(--foreground);
+  background: var(--background);
+}
+.length-choice:has([aria-checked='true']) > span {
+  color: var(--primary-foreground);
+  background: var(--primary);
+  border-color: var(--primary);
+}
+.length-choice:has(:focus-visible) > span {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+}
+.length-choice:has([disabled]) {
+  opacity: 0.5;
+  cursor: wait;
+}
+.length-radio[data-slot] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  z-index: 1;
+}
+.length-radio[data-slot]::after {
+  display: none;
+}
+.board[data-length='5'] .tile {
+  width: 49px;
+}
+.board[data-length='6'] .tile {
+  width: 43px;
+}
+.board[data-length='5'],
+.board[data-length='6'] {
+  max-width: calc(100% - 36px);
+}
 .game-heading h2 {
   font-size: 14px;
   letter-spacing: 0.05em;
@@ -770,6 +834,9 @@ a {
     max-width: 234px;
     margin-bottom: 10px;
   }
+  .board-column .game-heading:has(.length-picker) {
+    max-width: 292px;
+  }
   .board {
     gap: 4px;
   }
@@ -789,6 +856,13 @@ a {
   }
   .row-number {
     left: -24px;
+  }
+  .board[data-length='5'] .tile {
+    width: 46px;
+  }
+  .board[data-length='6'] .tile {
+    width: 38px;
+    font-size: 23px;
   }
   .legend {
     margin-top: 10px;

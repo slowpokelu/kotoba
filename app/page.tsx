@@ -15,6 +15,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
   Dialog,
   DialogContent,
@@ -32,9 +33,20 @@ import {
   AlertDialogDescription,
   AlertDialogCancel,
 } from '@/components/ui/alert-dialog';
-import dictionary from '@/lib/dictionary.json';
+import {
+  allAnswers,
+  allValid as valid,
+  answerSet,
+  answersFor,
+  aliasesFor,
+  dictionaryUpdated,
+} from '@/lib/word-pools.mjs';
 import {
   LIMIT,
+  PRACTICE_LENGTHS,
+  PRACTICE_LENGTH_KEY,
+  practiceId,
+  savedPracticeLength,
   normalize,
   resolveGuess,
   evaluate,
@@ -61,9 +73,6 @@ type Game = {
 };
 type Mode = 'daily' | 'practice';
 type Status = 'correct' | 'present' | 'absent';
-const valid = new Set(dictionary.readings);
-const answerSet = new Set(answers.map((a) => a.reading));
-const aliases: Record<string, string> = dictionary.aliases;
 const rows = [
   'あかさたなはまやらわ',
   'いきしちにひみ　りを',
@@ -91,8 +100,8 @@ function loadGame(fallback: Game) {
     return fallback;
   }
 }
-function pickPractice(previous = '') {
-  const choices = answers.filter((a) => a.reading !== previous);
+function pickPractice(length = 4, previous = '') {
+  const choices = answersFor(length).filter((a) => a.reading !== previous);
   const number = new Uint32Array(1);
   crypto.getRandomValues(number);
   return choices[number[0] % choices.length].reading;
@@ -108,6 +117,7 @@ export default function Home() {
 function GameView() {
   const { t, language } = useLanguage();
   const [mode, setMode] = useState<Mode>('daily');
+  const [practiceLength, setPracticeLength] = useState(4);
   const [day, setDay] = useState('');
   const [game, setGame] = useState<Game | null>(null);
   const [message, setMessage] = useState('');
@@ -137,6 +147,11 @@ function GameView() {
     const today = localDay();
     currentDay.current = today;
     setDay(today);
+    try {
+      setPracticeLength(savedPracticeLength(localStorage));
+    } catch {
+      /* Use four kana if browser storage is unavailable. */
+    }
     setGame(
       loadGame(newGame(dailyAnswer(today, answers).reading, 'daily:' + today)),
     );
@@ -176,13 +191,17 @@ function GameView() {
   }, [game]);
 
   const result = game ? outcome(game) : 'playing';
+  const length = mode === 'daily' ? 4 : practiceLength;
+  const aliases = aliasesFor(length);
   const finished = result !== 'playing';
   const keys = (
     game ? keyboardStates(game.guesses, game.answer) : {}
   ) as Record<string, Status>;
   const draft = game ? resolveGuess(game.draft, aliases) : '';
-  const tiles = /^[ぁ-ゖー]*$/u.test(draft) ? [...draft].slice(0, 4) : [];
-  const answer = game ? answers.find((a) => a.reading === game.answer) : null;
+  const tiles = /^[ぁ-ゖー]*$/u.test(draft) ? [...draft].slice(0, length) : [];
+  const answer = game
+    ? allAnswers.find((a) => a.reading === game.answer)
+    : null;
 
   function say(text: string, isError = false) {
     setMessage(text);
@@ -196,11 +215,14 @@ function GameView() {
   function switchMode(value: unknown) {
     const next = value as Mode;
     if (next === mode || busy.current) return;
-    const id = next === 'daily' ? 'daily:' + currentDay.current : 'practice';
+    const id =
+      next === 'daily'
+        ? 'daily:' + currentDay.current
+        : practiceId(practiceLength);
     const chosen =
       next === 'daily'
         ? dailyAnswer(currentDay.current, answers).reading
-        : pickPractice();
+        : pickPractice(practiceLength);
     setMode(next);
     setGame(loadGame(newGame(chosen, id)));
     say('');
@@ -209,11 +231,35 @@ function GameView() {
   }
   function again() {
     if (busy.current) return;
-    setGame(newGame(pickPractice(game?.answer), 'practice'));
+    setGame(
+      newGame(
+        pickPractice(practiceLength, game?.answer),
+        practiceId(practiceLength),
+      ),
+    );
     setMode('practice');
     say('');
     setCopyFallback('');
     setRevealing(-1);
+  }
+  function chooseLength(value: unknown) {
+    const next = Number(value);
+    if (
+      !PRACTICE_LENGTHS.includes(next) ||
+      next === practiceLength ||
+      busy.current
+    )
+      return;
+    setPracticeLength(next);
+    setGame(loadGame(newGame(pickPractice(next), practiceId(next))));
+    setGivingUp(false);
+    setCopyFallback('');
+    say('');
+    try {
+      localStorage.setItem(PRACTICE_LENGTH_KEY, String(next));
+    } catch {
+      setStorageWarning(true);
+    }
   }
   function giveUp() {
     const current = gameRef.current;
@@ -235,8 +281,8 @@ function GameView() {
     const next = atEnd
       ? normalized + k
       : game.draft.slice(0, start) + k + game.draft.slice(end);
-    if ([...normalize(next)].length > 4) {
-      say('4文字まで入力できます。', true);
+    if ([...normalize(next)].length > length) {
+      say(`${length}文字まで入力できます。`, true);
       return;
     }
     edit(next);
@@ -275,6 +321,7 @@ function GameView() {
       current.guesses,
       valid,
       aliases,
+      length,
     );
     if (checked.error) {
       say(checked.error, true);
@@ -318,6 +365,7 @@ function GameView() {
         ? shareText(game, day)
             .replace('ことば', 'Kotoba')
             .replace('練習', 'Practice')
+            .replace(/(\d)文字/, '$1 kana')
         : shareText(game, day);
     try {
       await navigator.clipboard.writeText(text);
@@ -338,14 +386,21 @@ function GameView() {
           </span>
         </h1>
         <div className="header-actions">
-          <span className="subtitle">{t('四文字のパズル')}</span>
+          <span className="subtitle">{t('かなのパズル')}</span>
           <PlayerTools
             game={game}
             day={day}
             busy={revealing >= 0}
+            practiceLength={practiceLength}
             onImport={() => {
               if (!game || busy.current) return;
-              const restored = loadGame(newGame(game.answer, game.id));
+              const nextLength = savedPracticeLength(localStorage);
+              setPracticeLength(nextLength);
+              const restored = loadGame(
+                mode === 'daily'
+                  ? newGame(game.answer, game.id)
+                  : newGame(pickPractice(nextLength), practiceId(nextLength)),
+              );
               gameRef.current = restored;
               setGame(restored);
               say(t('記録を読み込みました。'));
@@ -376,13 +431,31 @@ function GameView() {
           >
             <div className="board-column">
               <div className="game-heading">
-                <h2>
-                  {mode === 'daily'
-                    ? day
-                      ? day.replaceAll('-', ' / ')
-                      : t('今日の一問')
-                    : t('もう一問、気軽に。')}
-                </h2>
+                {mode === 'practice' ? (
+                  <div className="length-picker">
+                    <span id="length-label">{t('文字数')}</span>
+                    <RadioGroup
+                      className="length-options"
+                      aria-labelledby="length-label"
+                      value={String(practiceLength)}
+                      onValueChange={chooseLength}
+                      disabled={revealing >= 0}
+                    >
+                      {PRACTICE_LENGTHS.map((n) => (
+                        <label className="length-choice" key={n}>
+                          <RadioGroupItem
+                            value={String(n)}
+                            aria-label={t(`${n}文字`)}
+                            className="length-radio"
+                          />
+                          <span aria-hidden="true">{n}</span>
+                        </label>
+                      ))}
+                    </RadioGroup>
+                  </div>
+                ) : (
+                  <h2>{day ? day.replaceAll('-', ' / ') : t('今日の一問')}</h2>
+                )}
                 <span>
                   {game
                     ? Math.min(game.guesses.length + (finished ? 0 : 1), LIMIT)
@@ -392,6 +465,7 @@ function GameView() {
               </div>
               <div
                 className="board"
+                data-length={length}
                 aria-label={t('8回の解答欄')}
                 aria-busy={revealing >= 0}
               >
@@ -419,7 +493,7 @@ function GameView() {
                       >
                         {String(r + 1).padStart(2, '0')}
                       </span>
-                      {Array.from({ length: 4 }, (_, c) => {
+                      {Array.from({ length }, (_, c) => {
                         const status = statuses[c] as Status | undefined;
                         return (
                           <span
@@ -525,7 +599,7 @@ function GameView() {
               ) : (
                 <>
                   <div className="input-heading">
-                    <label htmlFor="guess">{t('ひらがな4文字')}</label>
+                    <label htmlFor="guess">{t(`ひらがな${length}文字`)}</label>
                     <span>{t('小さい「ゃ・ゅ・ょ・っ」も1文字')}</span>
                   </div>
                   <form
@@ -710,9 +784,7 @@ function GameView() {
       </Tabs>
       <footer>
         <span>
-          {mode === 'daily'
-            ? t('一日一語。')
-            : t('何度でも、自分のペースで。')}
+          {mode === 'daily' ? t('一日一語。') : t('何度でも、自分のペースで。')}
         </span>
         <button className="text-button" onClick={() => setHelp(true)}>
           {t('遊び方・出典')}
@@ -727,10 +799,12 @@ function GameView() {
             <X size={20} />
           </DialogClose>
           <DialogTitle className="help-title">
-            {t('四文字を、見つけよう。')}
+            {t('言葉を、見つけよう。')}
           </DialogTitle>
           <DialogDescription className="help-intro">
-            {t('ひらがな4文字の言葉を、8回以内に当てるパズルです。')}
+            {t(
+              'ひらがなの言葉を、8回以内に当てるパズルです。今日の一問は4文字。練習は3〜6文字から選べます。',
+            )}
           </DialogDescription>
           <div className="help-body">
             <div className="example">
@@ -800,7 +874,7 @@ function GameView() {
                 >
                   JMdict / EDICT
                 </a>
-                {t('（© EDRDG）。4文字の読みに抽出・変換。')}
+                {t('（© EDRDG）。3〜6文字の読みに抽出・変換。')}
                 <a
                   href="https://www.edrdg.org/edrdg/licence.html"
                   target="_blank"
@@ -809,12 +883,12 @@ function GameView() {
                   {t('CC BY-SA 4.0・利用条件')}
                 </a>
                 {t('。更新：')}
-                {dictionary.updated}
+                {dictionaryUpdated}
                 {t('。')}
               </p>
               <p>
                 {t('正解の言葉は日常語から選定。判定用辞書は')}
-                {dictionary.readings.length.toLocaleString('ja-JP')}
+                {valid.size.toLocaleString('ja-JP')}
                 {t('語。')}
               </p>
             </div>
