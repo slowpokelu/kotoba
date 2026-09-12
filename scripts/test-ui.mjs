@@ -272,6 +272,10 @@ Object.defineProperty(navigator, 'clipboard', {
 });
 await click('結果をコピー');
 assert.ok(document.querySelector('.share-fallback'), 'copy fallback appears');
+assert.ok(
+  document.querySelector('.share-fallback').value.endsWith('https://slowpokelu.github.io/kotoba/'),
+  'Japanese copy fallback includes the public game link',
+);
 await click('もう一問');
 assert.equal(document.querySelectorAll('.guess-row .correct').length, 0);
 assert.equal(document.querySelector('#guess').value, '');
@@ -488,6 +492,10 @@ for (const n of [3, 5, 6]) {
     document
       .querySelector('.share-fallback')
       .value.includes(`Practice · ${n} kana`),
+  );
+  assert.ok(
+    document.querySelector('.share-fallback').value.endsWith('https://slowpokelu.github.io/kotoba/'),
+    'English practice result includes the public game link',
   );
   await click('Play again');
   assert.equal(document.querySelectorAll('.board .tile').length, n * 8);
