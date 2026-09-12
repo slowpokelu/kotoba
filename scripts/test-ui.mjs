@@ -108,6 +108,14 @@ const saved = () =>
   );
 
 await mount();
+assert.equal(document.documentElement.lang, 'en', 'English is the default');
+assert.equal(document.querySelector('#language-en').textContent.trim(), 'en');
+assert.equal(document.querySelector('#language-ja').textContent.trim(), 'jp');
+assert.ok(document.querySelector('#language-en u'));
+assert.equal(document.querySelector('#language-ja u'), null);
+await click('日本語');
+assert.ok(document.querySelector('#language-ja u'));
+assert.equal(document.querySelector('#language-en u'), null);
 assert.equal(document.querySelectorAll('.board .tile').length, 32);
 assert.equal(document.querySelectorAll('.guess-row .current').length, 4);
 const inputField = () => document.querySelector('#guess');
@@ -168,6 +176,7 @@ assert.equal(
 );
 await unmount();
 await mount();
+assert.equal(document.documentElement.lang, 'ja', 'saved Japanese is restored');
 assert.equal(inputField().value, 'しんぶn', 'pending romaji survives reload');
 await type('あ');
 await submit();
@@ -395,6 +404,7 @@ localStorage.clear();
 const { localDay } = await import('../lib/game.mjs');
 localStorage.setItem('kotoba:v1:daily:' + localDay(), 'invalid-json');
 await mount();
+await click('日本語');
 assert.equal(
   saved().guesses.length,
   0,
@@ -422,6 +432,7 @@ await unmount();
 dom.window.Storage.prototype.setItem = originalSetItem;
 localStorage.clear();
 await mount();
+await click('日本語');
 await click('答えを見る');
 assert.ok(document.querySelector('[role="alertdialog"]'));
 await click('続ける');
@@ -635,9 +646,10 @@ await click('Close');
 await unmount();
 localStorage.clear();
 await mount();
-await click('設定');
+assert.equal(document.documentElement.lang, 'en');
+await click('Settings');
 await importFile(JSON.stringify(multiLengthBackup));
-await click('記録を追加する');
+await click('Merge records');
 await click('Close');
 await click('Practice');
 assert.equal(

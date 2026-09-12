@@ -2,19 +2,18 @@
 /* oxlint-disable react/react-compiler -- Restore the browser preference after hydration. */
 import { createContext, useContext, useEffect, useState } from 'react';
 import { translate } from '@/lib/translations.mjs';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 const LanguageContext = createContext({
-  language: 'ja',
+  language: 'en',
   setLanguage: (_value: string) => {},
   t: (text: string) => text,
 });
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  const [language, setLanguage] = useState('ja');
+  const [language, setLanguage] = useState('en');
   useEffect(() => {
     try {
-      if (localStorage.getItem('kotoba:language') === 'en') setLanguage('en');
+      if (localStorage.getItem('kotoba:language') === 'ja') setLanguage('ja');
     } catch {
-      /* Keep Japanese. */
+      /* Keep English. */
     }
   }, []);
   useEffect(() => {
@@ -37,48 +36,40 @@ export const useLanguage = () => useContext(LanguageContext);
 export function LanguageSwitcher() {
   const { language, setLanguage, t } = useLanguage();
   const [notice, setNotice] = useState('');
+  function selectLanguage(next: string) {
+    setLanguage(next);
+    setNotice('');
+    try {
+      localStorage.setItem('kotoba:language', next);
+    } catch {
+      setNotice('表示は変更しましたが、このブラウザには設定を保存できません。');
+    }
+  }
   return (
     <>
-      <RadioGroup
-        className="language-switcher"
-        aria-label={t('表示言語')}
-        value={language}
-        onValueChange={(value) => {
-          const next = String(value);
-          if (next !== 'ja' && next !== 'en') return;
-          setLanguage(next);
-          setNotice('');
-          try {
-            localStorage.setItem('kotoba:language', next);
-          } catch {
-            setNotice(
-              '表示は変更しましたが、このブラウザには設定を保存できません。',
-            );
-          }
-        }}
-      >
-        <label className="language-choice" lang="ja" htmlFor="language-ja">
-          <RadioGroupItem
-            id="language-ja"
-            value="ja"
-            aria-label="日本語"
-            className="language-radio"
-          />
-          <span aria-hidden="true">
-            <span className="language-native">日本語</span>
-            <span className="language-short">JP</span>
-          </span>
-        </label>
-        <label className="language-choice" lang="en" htmlFor="language-en">
-          <RadioGroupItem
-            id="language-en"
-            value="en"
-            aria-label="English"
-            className="language-radio"
-          />
-          <span aria-hidden="true">EN</span>
-        </label>
-      </RadioGroup>
+      <span>
+        <button
+          type="button"
+          id="language-en"
+          lang="en"
+          aria-label="English"
+          aria-pressed={language === 'en'}
+          onClick={() => selectLanguage('en')}
+        >
+          {language === 'en' ? <u>en</u> : 'en'}
+        </button>
+        <span aria-hidden="true"> / </span>
+        <button
+          type="button"
+          id="language-ja"
+          lang="ja"
+          aria-label="日本語"
+          aria-pressed={language === 'ja'}
+          onClick={() => selectLanguage('ja')}
+        >
+          {language === 'ja' ? <u>jp</u> : 'jp'}
+        </button>
+      </span>
       {notice && <output className="sr-only">{t(notice)}</output>}
     </>
   );
