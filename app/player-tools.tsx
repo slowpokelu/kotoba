@@ -241,13 +241,13 @@ export function PlayerTools({
           <DialogTitle className="help-title">
             {panel === 'stats' ? t('今日の一問 · 成績') : t('設定')}
           </DialogTitle>
-          <DialogDescription className="help-intro">
-            {panel === 'stats'
-              ? t(
-                  'このブラウザに保存された、終了した一問の記録。練習は含みません。',
-                )
-              : t('表示と、あなたの記録。')}
-          </DialogDescription>
+          {panel === 'stats' && (
+            <DialogDescription className="help-intro">
+              {t(
+                'このブラウザに保存された、終了した一問の記録。練習は含みません。',
+              )}
+            </DialogDescription>
+          )}
           {panel === 'stats' ? (
             <>
               <dl className="stats-grid">

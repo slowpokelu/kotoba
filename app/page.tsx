@@ -568,15 +568,15 @@ function GameView() {
               {finished && revealing < 0 ? (
                 <section className="result-card" aria-label={t('結果')}>
                   <span className="eyebrow">
-                    {result === 'won' ? t('見つけた！') : t('今回の答え')}
+                    {result === 'won' ? t('正解') : t('今回の答え')}
                   </span>
                   <h2>{answer?.spelling}</h2>
                   <p className="answer-reading">{game?.answer}</p>
-                  <p>
-                    {result === 'won'
-                      ? t(game?.guesses.length + ' / ' + LIMIT + ' 回で正解。')
-                      : t('また次の一問で。')}
-                  </p>
+                  {result === 'won' && (
+                    <p>
+                      {t(game?.guesses.length + ' / ' + LIMIT + ' 回で正解。')}
+                    </p>
+                  )}
                   <div className="result-actions">
                     <button className="primary-button" onClick={again}>
                       <RotateCcw size={17} />
@@ -809,7 +809,7 @@ function GameView() {
       </Tabs>
       <footer>
         <span>
-          {mode === 'daily' ? t('一日一語。') : t('何度でも、自分のペースで。')}
+          {mode === 'daily' ? t('一日一語。') : t('練習は何度でも。')}
         </span>
         <button className="text-button" onClick={() => setHelp(true)}>
           {t('遊び方・出典')}
@@ -823,9 +823,7 @@ function GameView() {
           >
             <X size={20} />
           </DialogClose>
-          <DialogTitle className="help-title">
-            {t('言葉を、見つけよう。')}
-          </DialogTitle>
+          <DialogTitle className="help-title">{t('遊び方')}</DialogTitle>
           <DialogDescription className="help-intro">
             {t(
               'ひらがなの言葉を、8回以内に当てるパズルです。今日の一問は4文字。練習は3〜6文字から選べます。',

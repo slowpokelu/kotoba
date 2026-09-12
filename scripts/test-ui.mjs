@@ -255,7 +255,10 @@ await type(saved().answer);
 await submit();
 await settle();
 assert.ok(document.querySelector('.result-card'));
-assert.ok(text().includes('見つけた！'));
+assert.equal(
+  document.querySelector('.result-card .eyebrow').textContent,
+  '正解',
+);
 await unmount();
 await mount();
 assert.ok(
@@ -273,7 +276,9 @@ Object.defineProperty(navigator, 'clipboard', {
 await click('結果をコピー');
 assert.ok(document.querySelector('.share-fallback'), 'copy fallback appears');
 assert.ok(
-  document.querySelector('.share-fallback').value.endsWith('https://slowpokelu.github.io/kotoba/'),
+  document
+    .querySelector('.share-fallback')
+    .value.endsWith('https://slowpokelu.github.io/kotoba/'),
   'Japanese copy fallback includes the public game link',
 );
 await click('もう一問');
@@ -494,7 +499,9 @@ for (const n of [3, 5, 6]) {
       .value.includes(`Practice · ${n} kana`),
   );
   assert.ok(
-    document.querySelector('.share-fallback').value.endsWith('https://slowpokelu.github.io/kotoba/'),
+    document
+      .querySelector('.share-fallback')
+      .value.endsWith('https://slowpokelu.github.io/kotoba/'),
     'English practice result includes the public game link',
   );
   await click('Play again');
