@@ -6,7 +6,7 @@ A Japanese word puzzle with eight guesses. One four-kana word a day, plus unlimi
 
 - Japanese and English interface.
 - Light, dark and system themes.
-- Japanese IME and on-screen kana keyboard.
+- Automatic romaji-to-hiragana input, Japanese IME and on-screen kana keyboard.
 - Daily statistics saved in your browser.
 - JSON export/import for progress and preferences. No accounts or cloud saves.
 
@@ -36,6 +36,10 @@ Progress is local to each browser and site address. To move it, use Settings →
 Daily puzzles follow your local date. Players on the same date get the same word. Practice does not affect daily statistics.
 
 Each practice length keeps its own saved round. The length choice and all rounds are included in backups. Small kana and ー each count as one tile.
+
+## Input
+
+Romaji converts while you type; no Japanese keyboard is required. Incomplete syllables stay editable, and submitting commits a trailing `n` to ん. Use `n'` before a vowel to separate ん, `x` or `l` for small kana, and `-` for ー. Native Japanese IME composition is left alone: confirm it first, then press Enter again to submit. Kana conversion uses [WanaKana](https://wanakana.com/) (MIT).
 
 ## Dictionary
 

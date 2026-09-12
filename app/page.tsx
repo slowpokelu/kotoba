@@ -3,7 +3,7 @@
 /* oxlint-disable typescript/no-misused-spread -- NFC kana are deliberately counted as individual code points, including small kana. */
 /* oxlint-disable typescript/no-deprecated -- keyCode 229 covers Safari IME confirmation, where isComposing can be false. */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   HelpCircle,
   Delete,
@@ -24,6 +24,7 @@ import {
   DialogClose,
 } from '@/components/ui/dialog';
 import { answers } from '@/lib/answers.mjs';
+import { convertInput, convertRomaji, previewKana } from '@/lib/kana-input.mjs';
 import { PlayerTools } from './player-tools';
 import { LanguageProvider, useLanguage } from './language';
 import {
@@ -129,6 +130,7 @@ function GameView() {
   const [copyFallback, setCopyFallback] = useState('');
   const [storageWarning, setStorageWarning] = useState(false);
   const field = useRef<HTMLInputElement>(null);
+  const selection = useRef<{ start: number; end: number } | null>(null);
   const composing = useRef(false);
   const compositionEnd = useRef(0);
   const busy = useRef(false);
@@ -136,6 +138,15 @@ function GameView() {
   const gameRef = useRef(game);
   useEffect(() => {
     gameRef.current = game;
+  }, [game]);
+  useLayoutEffect(() => {
+    if (selection.current && !composing.current) {
+      field.current?.setSelectionRange(
+        selection.current.start,
+        selection.current.end,
+      );
+    }
+    selection.current = null;
   }, [game]);
   const currentDay = useRef('');
   const modeRef = useRef(mode);
@@ -198,7 +209,7 @@ function GameView() {
     game ? keyboardStates(game.guesses, game.answer) : {}
   ) as Record<string, Status>;
   const draft = game ? resolveGuess(game.draft, aliases) : '';
-  const tiles = /^[ぁ-ゖー]*$/u.test(draft) ? [...draft].slice(0, length) : [];
+  const tiles = [...previewKana(draft)].slice(0, length);
   const answer = game
     ? allAnswers.find((a) => a.reading === game.answer)
     : null;
@@ -208,9 +219,21 @@ function GameView() {
     setError(isError);
   }
   function edit(value: string) {
-    if (!game || finished || busy.current) return;
-    setGame({ ...game, draft: value.slice(0, 40) });
+    const current = gameRef.current;
+    if (!current || outcome(current) !== 'playing' || busy.current) return;
+    const next = { ...current, draft: value.slice(0, 40) };
+    gameRef.current = next;
+    setGame(next);
     say('');
+  }
+  function typeInput(input: HTMLInputElement) {
+    const next = convertInput(
+      input.value,
+      input.selectionStart ?? input.value.length,
+      input.selectionEnd ?? input.value.length,
+    );
+    selection.current = next;
+    edit(next.value);
   }
   function switchMode(value: unknown) {
     const next = value as Mode;
@@ -276,33 +299,26 @@ function GameView() {
     // Respect a selected range or caret when using the on-screen keys.
     const start = input?.selectionStart ?? game.draft.length,
       end = input?.selectionEnd ?? start;
-    const normalized = normalize(game.draft);
-    const atEnd = start === game.draft.length;
-    const next = atEnd
-      ? normalized + k
-      : game.draft.slice(0, start) + k + game.draft.slice(end);
-    if ([...normalize(next)].length > length) {
+    const next = convertInput(
+      game.draft.slice(0, start) + k + game.draft.slice(end),
+      start + k.length,
+    );
+    if ([...normalize(next.value)].length > length) {
       say(`${length}文字まで入力できます。`, true);
       return;
     }
-    edit(next);
-    requestAnimationFrame(() =>
-      input?.setSelectionRange(start + k.length, start + k.length),
-    );
+    selection.current = next;
+    edit(next.value);
   }
   function backspace() {
     if (!game) return;
     const start = field.current?.selectionStart ?? game.draft.length,
       end = field.current?.selectionEnd ?? start;
+    const caret = start === end ? Math.max(0, start - 1) : start;
+    selection.current = { start: caret, end: caret };
     if (start === end)
       edit(game.draft.slice(0, Math.max(0, start - 1)) + game.draft.slice(end));
     else edit(game.draft.slice(0, start) + game.draft.slice(end));
-    requestAnimationFrame(() =>
-      field.current?.setSelectionRange(
-        Math.max(0, start - 1),
-        Math.max(0, start - 1),
-      ),
-    );
   }
   function submit() {
     const current = gameRef.current;
@@ -316,14 +332,16 @@ function GameView() {
       return;
     // Keep keyboard entry continuous, including after clicking the submit button.
     field.current?.focus({ preventScroll: true });
+    const committed = convertRomaji(current.draft, true);
     const checked = validateGuess(
-      current.draft,
+      committed,
       current.guesses,
       valid,
       aliases,
       length,
     );
     if (checked.error) {
+      if (committed !== current.draft) edit(committed);
       say(checked.error, true);
       return;
     }
@@ -622,8 +640,17 @@ function GameView() {
                       spellCheck={false}
                       aria-describedby="input-note game-message"
                       aria-invalid={error || undefined}
-                      onChange={(e) => edit(e.currentTarget.value)}
+                      onChange={(e) => {
+                        if (
+                          composing.current ||
+                          (e.nativeEvent as InputEvent).isComposing ||
+                          Date.now() - compositionEnd.current < 150
+                        )
+                          edit(e.currentTarget.value);
+                        else typeInput(e.currentTarget);
+                      }}
                       onCompositionStart={() => {
+                        selection.current = null;
                         composing.current = true;
                       }}
                       onCompositionEnd={(e) => {
@@ -645,9 +672,10 @@ function GameView() {
                         if (
                           game &&
                           !composing.current &&
-                          game.draft !== normalize(game.draft)
+                          game.draft !==
+                            normalize(convertRomaji(game.draft, true))
                         )
-                          edit(normalize(game.draft));
+                          edit(normalize(convertRomaji(game.draft, true)));
                       }}
                     />
                     <button
@@ -666,7 +694,7 @@ function GameView() {
                     </button>
                   </form>
                   <p id="input-note" className="input-note">
-                    {t('キーボードでも、下のかなでも。')}
+                    {t('ローマ字は自動でかなに変換。日本語入力も使えます。')}
                   </p>
                   <button
                     className="text-button give-up"
@@ -844,7 +872,7 @@ function GameView() {
             <h3>{t('入力のコツ')}</h3>
             <p>
               {t(
-                'カタカナは自動でひらがなになります。漢字も読みが一つに決まれば変換できます。変換できない場合は、読みを入力してください。日本語入力の確定後、もう一度 Enter で回答します。',
+                'ローマ字は入力中にひらがなへ変換されます。途中の子音は次の文字を待ち、最後の「ん」は回答時に確定します。カタカナも使えます。漢字は読みが一つに決まれば変換できます。日本語入力の確定後、もう一度 Enter で回答します。',
               )}
             </p>
             <p>

@@ -74,7 +74,7 @@ const click = async (label) => {
     await new Promise((r) => setTimeout(r, 25));
   });
 };
-const type = async (value) => {
+const type = async (value, start = value.length, end = start) => {
   const input = document.querySelector('#guess');
   assert.ok(input);
   await act(async () => {
@@ -82,6 +82,7 @@ const type = async (value) => {
       HTMLInputElement.prototype,
       'value',
     ).set.call(input, value);
+    input.setSelectionRange(start, end);
     input.dispatchEvent(new Event('input', { bubbles: true }));
   });
 };
@@ -109,6 +110,56 @@ const saved = () =>
 await mount();
 assert.equal(document.querySelectorAll('.board .tile').length, 32);
 assert.equal(document.querySelectorAll('.guess-row .current').length, 4);
+const inputField = () => document.querySelector('#guess');
+inputField().focus();
+for (const letter of 'gakkou') await type(inputField().value + letter);
+assert.equal(inputField().value, 'がっこう', 'romaji converts as it is typed');
+assert.equal(
+  document.activeElement,
+  inputField(),
+  'conversion preserves focus',
+);
+assert.equal(inputField().selectionStart, 4, 'caret follows converted kana');
+await type('がっk');
+assert.deepEqual(
+  [...document.querySelectorAll('.tile.current > span')].map(
+    (t) => t.textContent,
+  ),
+  ['が', 'っ', '', ''],
+  'unfinished syllables keep the existing tiles visible',
+);
+await type('かshaく', 4);
+assert.equal(inputField().value, 'かしゃく');
+assert.equal(
+  inputField().selectionStart,
+  3,
+  'middle insertion keeps its caret',
+);
+await type('あいうえ');
+inputField().setSelectionRange(1, 3);
+await click('か');
+assert.equal(inputField().value, 'あかえ', 'kana key replaces a selection');
+assert.equal(inputField().selectionStart, 2);
+inputField().setSelectionRange(1, 2);
+await click('1文字消す');
+assert.equal(inputField().value, 'あえ');
+assert.equal(
+  inputField().selectionStart,
+  1,
+  'selection deletion retains its start',
+);
+await type('');
+for (const letter of 'konnichiha') await type(inputField().value + letter);
+assert.equal(inputField().value, 'こんにちは', 'double n works incrementally');
+await type('ＳＨＩＮＢＵＮ');
+assert.equal(
+  inputField().value,
+  'しんぶn',
+  'pasted full-width romaji converts',
+);
+await unmount();
+await mount();
+assert.equal(inputField().value, 'しんぶn', 'pending romaji survives reload');
 await type('あ');
 await submit();
 assert.ok(text().includes('ひらがな4文字で入力してください'));
@@ -121,6 +172,7 @@ await act(async () => {
     );
 });
 await type('ｶﾞｯｺｳ');
+assert.equal(inputField().value, 'ｶﾞｯｺｳ', 'active native IME is not rewritten');
 await submit();
 assert.equal(saved().guesses.length, 0, 'composition must not spend a guess');
 await act(async () => {
@@ -365,6 +417,20 @@ await click('Play again');
 await type('あ');
 await submit();
 assert.ok(text().includes('Enter exactly four hiragana.'));
+await type('shinbun');
+const previousGuessCount = JSON.parse(
+  localStorage.getItem('kotoba:v1:practice'),
+).guesses.length;
+await submit();
+await settle();
+const romajiRound = JSON.parse(localStorage.getItem('kotoba:v1:practice'));
+assert.equal(
+  romajiRound.guesses.at(-1),
+  'しんぶん',
+  'submit commits terminal n',
+);
+assert.equal(romajiRound.guesses.length, previousGuessCount + 1);
+if (romajiRound.answer === 'しんぶん') await click('Play again');
 await click('Give up');
 assert.ok(text().includes('Give up this word?'));
 await click('Keep playing');
