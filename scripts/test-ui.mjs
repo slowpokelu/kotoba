@@ -435,6 +435,18 @@ await mount();
 await click('日本語');
 await click('答えを見る');
 assert.ok(document.querySelector('[role="alertdialog"]'));
+assert.deepEqual(
+  [
+    ...document.querySelectorAll('[role="alertdialog"] .dialog-actions button'),
+  ].map((b) => b.textContent.trim()),
+  ['終了して答えを見る', '続ける'],
+  'give up is left and continue is right',
+);
+assert.equal(
+  document.activeElement,
+  button('続ける'),
+  'continue keeps initial focus',
+);
 await click('続ける');
 assert.equal(saved().gaveUp, false, 'cancel does not surrender');
 await click('答えを見る');

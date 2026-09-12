@@ -1089,6 +1089,9 @@ a {
 .confirm-dialog[data-slot] {
   max-width: min(460px, calc(100% - 28px));
 }
+.confirm-dialog .dialog-actions {
+  justify-content: space-between;
+}
 .player-dialog[data-slot] {
   max-width: min(520px, calc(100% - 28px));
 }

@@ -128,6 +128,7 @@ function GameView() {
   const [revealing, setRevealing] = useState(-1);
   const [storageWarning, setStorageWarning] = useState(false);
   const field = useRef<HTMLInputElement>(null);
+  const continueButton = useRef<HTMLButtonElement>(null);
   const selection = useRef<{ start: number; end: number } | null>(null);
   const composing = useRef(false);
   const compositionEnd = useRef(0);
@@ -885,7 +886,10 @@ function GameView() {
         </DialogContent>
       </Dialog>
       <AlertDialog open={givingUp} onOpenChange={setGivingUp}>
-        <AlertDialogContent className="help-dialog confirm-dialog">
+        <AlertDialogContent
+          className="help-dialog confirm-dialog"
+          initialFocus={continueButton}
+        >
           <AlertDialogTitle className="help-title">
             {t('ここで終了しますか？')}
           </AlertDialogTitle>
@@ -899,12 +903,15 @@ function GameView() {
                 )}
           </AlertDialogDescription>
           <div className="dialog-actions">
-            <AlertDialogCancel className="secondary-button">
-              {t('続ける')}
-            </AlertDialogCancel>
             <button className="primary-button danger-button" onClick={giveUp}>
               {t('終了して答えを見る')}
             </button>
+            <AlertDialogCancel
+              ref={continueButton}
+              className="secondary-button"
+            >
+              {t('続ける')}
+            </AlertDialogCancel>
           </div>
         </AlertDialogContent>
       </AlertDialog>
