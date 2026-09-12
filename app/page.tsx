@@ -638,7 +638,7 @@ function GameView() {
                       autoComplete="off"
                       autoCapitalize="off"
                       spellCheck={false}
-                      aria-describedby="input-note game-message"
+                      aria-describedby="game-message"
                       aria-invalid={error || undefined}
                       onChange={(e) => {
                         if (
@@ -693,9 +693,6 @@ function GameView() {
                       <ArrowRight size={18} />
                     </button>
                   </form>
-                  <p id="input-note" className="input-note">
-                    {t('ローマ字は自動でかなに変換。日本語入力も使えます。')}
-                  </p>
                   <button
                     className="text-button give-up"
                     disabled={!game || revealing >= 0}

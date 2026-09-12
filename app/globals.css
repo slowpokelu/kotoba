@@ -487,11 +487,6 @@ a {
 .secondary-button:hover {
   background: #e9eefc;
 }
-.input-note {
-  font-size: 12px;
-  color: var(--muted-foreground);
-  margin: 8px 0 0;
-}
 .status {
   min-height: 44px;
   display: flex;
@@ -883,9 +878,6 @@ a {
   }
   .submit-button {
     padding: 8px 12px;
-  }
-  .input-note {
-    display: none;
   }
   .status {
     min-height: 30px;
