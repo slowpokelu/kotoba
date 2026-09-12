@@ -291,99 +291,30 @@ Object.defineProperty(navigator, 'clipboard', {
   },
   configurable: true,
 });
-await click('結果をシェア');
-assert.ok(document.querySelector('.share-card'), 'share preview opens');
-assert.ok(
-  !document.querySelector('.share-card').textContent.includes(saved().answer),
-  'share card has no answer',
-);
 await click('結果をコピー');
-assert.ok(document.querySelector('.share-fallback'), 'copy fallback appears');
-assert.ok(
-  document
-    .querySelector('.share-fallback')
-    .value.endsWith('https://slowpokelu.github.io/kotoba/'),
-  'Japanese copy fallback includes the public game link',
-);
-await click('閉じる');
-let nativeResult;
-Object.defineProperty(navigator, 'share', {
-  configurable: true,
-  writable: true,
-  value: async (data) => {
-    nativeResult = data;
-  },
-});
-await click('結果をシェア');
-await click('シェア…');
-assert.ok(nativeResult.text.endsWith('https://slowpokelu.github.io/kotoba/'));
-assert.ok(
-  !nativeResult.text.includes(saved().answer),
-  'native share contains no answer',
-);
-navigator.share = async () => {
-  throw Object.assign(new Error('cancelled'), { name: 'AbortError' });
-};
-await click('シェア…');
 assert.equal(
-  document.querySelector('.share-notice'),
+  document.querySelector('[role="dialog"]'),
   null,
-  'cancelling share is silent',
+  'copy does not open a panel',
 );
-navigator.share = async () => {
-  throw new Error('blocked');
-};
-await click('シェア…');
+assert.ok(document.querySelector('.share-fallback'), 'copy fallback appears');
+const fallbackResult = document.querySelector('.share-fallback').value;
+assert.ok(fallbackResult.endsWith('https://slowpokelu.github.io/kotoba/'));
 assert.ok(
-  document.querySelector('.share-fallback'),
-  'failed native share leaves manual copy available',
+  !fallbackResult.includes(saved().answer),
+  'copied result has no answer',
 );
 let copiedResult;
 navigator.clipboard.writeText = async (value) => {
   copiedResult = value;
 };
 await click('結果をコピー');
-assert.equal(copiedResult, nativeResult.text);
+assert.equal(copiedResult, fallbackResult, 'one click copies the result');
 assert.equal(document.querySelector('.share-fallback'), null);
-
-const canvasPrototype = dom.window.HTMLCanvasElement.prototype;
-const originalGetContext = canvasPrototype.getContext;
-const originalToBlob = canvasPrototype.toBlob;
-const originalImageUrl = URL.createObjectURL.bind(URL);
-const originalImageClick = dom.window.HTMLAnchorElement.prototype.click;
-let downloadedImage;
-const drawnText = [];
-canvasPrototype.getContext = () => ({
-  fillRect() {},
-  fillText(value) {
-    drawnText.push(value);
-  },
-});
-canvasPrototype.toBlob = (callback, type) =>
-  callback(new Blob(['image-test'], { type }));
-URL.createObjectURL = (blob) => {
-  assert.equal(blob.type, 'image/png');
-  return 'blob:share-test';
-};
-dom.window.HTMLAnchorElement.prototype.click = function () {
-  downloadedImage = this.download;
-};
-await click('画像を保存');
-assert.match(downloadedImage, /^kotoba-.+\.png$/);
-assert.ok(drawnText.includes('slowpokelu.github.io/kotoba/'));
-assert.ok(
-  !drawnText.includes(saved().answer),
-  'image drawing contains no answer',
-);
-canvasPrototype.getContext = originalGetContext;
-canvasPrototype.toBlob = originalToBlob;
-URL.createObjectURL = originalImageUrl;
-dom.window.HTMLAnchorElement.prototype.click = originalImageClick;
+assert.ok(text().includes('結果をコピーしました'));
 navigator.clipboard.writeText = async () => {
   throw new Error('denied');
 };
-delete navigator.share;
-await click('閉じる');
 await click('もう一問');
 assert.equal(document.querySelectorAll('.guess-row .correct').length, 0);
 assert.equal(document.querySelector('#guess').value, '');
@@ -613,7 +544,6 @@ for (const n of [3, 5, 6]) {
     document.querySelector('.result-card h2').textContent,
     'kanji reveal exists',
   );
-  await click('Share result');
   await click('Copy result');
   assert.ok(
     document
@@ -626,7 +556,6 @@ for (const n of [3, 5, 6]) {
       .value.endsWith('https://slowpokelu.github.io/kotoba/'),
     'English practice result includes the public game link',
   );
-  await click('Close');
   await click('Play again');
   assert.equal(document.querySelectorAll('.board .tile').length, n * 8);
   assert.notEqual(JSON.parse(localStorage.getItem(key)).answer, round.answer);

@@ -662,100 +662,6 @@ a {
   padding: 10px;
   font-size: 16px;
 }
-.help-dialog.share-dialog[data-slot] {
-  max-width: min(460px, calc(100% - 28px));
-}
-.share-card {
-  padding: 22px;
-  border: 1px solid var(--border);
-  border-top: 3px solid var(--primary);
-  border-radius: 10px;
-  background: #fff;
-  color: var(--foreground);
-}
-.share-card-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-.share-card-heading strong {
-  font-size: 24px;
-  font-family: 'Hiragino Mincho ProN', 'Yu Mincho', serif;
-}
-.share-card-heading > span {
-  font-size: 36px;
-  font-weight: 650;
-  font-variant-numeric: tabular-nums;
-}
-.share-card-label,
-.share-card-url {
-  color: var(--muted-foreground);
-  font-size: 14px;
-}
-.share-card-label {
-  margin: 3px 0 20px;
-}
-.share-grid {
-  display: grid;
-  gap: 6px;
-  max-width: 250px;
-  margin: 0 auto 20px;
-}
-.share-grid:empty {
-  display: none;
-}
-.share-tile {
-  display: grid;
-  place-items: center;
-  height: 28px;
-  border-radius: 4px;
-  font-size: 14px;
-  font-weight: 700;
-}
-.share-tile.correct {
-  background: #254cca;
-  color: #fff;
-}
-.share-tile.present {
-  background: #edc46d;
-  color: #172849;
-}
-.share-tile.absent {
-  background: #e6ebf3;
-  color: #172849;
-}
-.share-card-url {
-  display: block;
-  text-align: center;
-  overflow-wrap: anywhere;
-}
-.share-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.share-actions button {
-  flex: 1 1 auto;
-  justify-content: center;
-  font-size: 14px;
-}
-.share-notice {
-  margin: 0;
-  font-size: 14px;
-  color: var(--muted-foreground);
-}
-[data-theme='dark'] .share-card {
-  background: #172236;
-}
-[data-theme='dark'] .share-tile.correct {
-  background: #94b0ff;
-  color: #172849;
-}
-[data-theme='dark'] .share-tile.absent {
-  background: #303b4c;
-  color: #e3eaf7;
-}
 .storage-warning {
   font-size: 13px;
   color: #a02d24;
@@ -1354,8 +1260,5 @@ a {
   .header-actions .icon-button {
     width: 34px;
     height: 34px;
-  }
-  .share-card {
-    padding: 16px;
   }
 }
