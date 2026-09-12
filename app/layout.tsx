@@ -1,9 +1,8 @@
 import type { Metadata } from 'next';
 import './globals.css';
 export const metadata: Metadata = {
-  title: 'ことば — 四文字のパズル',
-  description:
-    'ひらがな4文字、8回のチャンス。毎日遊べる日本語の言葉当てパズル。',
+  title: 'ことば · Kotoba',
+  description: '日本語の言葉当てパズル。8回以内に正解を見つけよう。',
   icons: { icon: '/favicon.svg' },
 };
 export default function RootLayout({

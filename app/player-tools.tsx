@@ -302,37 +302,6 @@ export function PlayerTools({
           ) : (
             <>
               <section className="settings-section">
-                <h3 id="language-heading">{t('表示言語')}</h3>
-                <RadioGroup
-                  className="theme-options"
-                  aria-labelledby="language-heading"
-                  value={language}
-                  onValueChange={(value) => {
-                    const next = String(value);
-                    if (next !== 'ja' && next !== 'en') return;
-                    setLanguage(next);
-                    try {
-                      localStorage.setItem('kotoba:language', next);
-                    } catch {
-                      setNotice(
-                        t(
-                          '表示は変更しましたが、このブラウザには設定を保存できません。',
-                        ),
-                      );
-                    }
-                  }}
-                >
-                  <label lang="ja" htmlFor="language-ja">
-                    <RadioGroupItem id="language-ja" value="ja" />
-                    日本語
-                  </label>
-                  <label lang="en" htmlFor="language-en">
-                    <RadioGroupItem id="language-en" value="en" />
-                    English
-                  </label>
-                </RadioGroup>
-              </section>
-              <section className="settings-section">
                 <h3 id="theme-heading">{t('テーマ')}</h3>
                 <RadioGroup
                   className="theme-options"

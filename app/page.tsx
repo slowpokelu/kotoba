@@ -8,7 +8,6 @@ import {
   HelpCircle,
   Delete,
   ArrowRight,
-  Copy,
   RotateCcw,
   Keyboard,
   X,
@@ -26,7 +25,8 @@ import {
 import { answers } from '@/lib/answers.mjs';
 import { convertInput, convertRomaji, previewKana } from '@/lib/kana-input.mjs';
 import { PlayerTools } from './player-tools';
-import { LanguageProvider, useLanguage } from './language';
+import { LanguageProvider, LanguageSwitcher, useLanguage } from './language';
+import { ShareResult } from './share-result';
 import {
   AlertDialog,
   AlertDialogContent,
@@ -59,7 +59,6 @@ import {
   restoreGame,
   outcome,
   modifyLast,
-  shareText,
   labels,
   marks,
 } from '@/lib/game.mjs';
@@ -116,7 +115,7 @@ export default function Home() {
   );
 }
 function GameView() {
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
   const [mode, setMode] = useState<Mode>('daily');
   const [practiceLength, setPracticeLength] = useState(4);
   const [day, setDay] = useState('');
@@ -127,7 +126,6 @@ function GameView() {
   const [givingUp, setGivingUp] = useState(false);
   const [extra, setExtra] = useState(false);
   const [revealing, setRevealing] = useState(-1);
-  const [copyFallback, setCopyFallback] = useState('');
   const [storageWarning, setStorageWarning] = useState(false);
   const field = useRef<HTMLInputElement>(null);
   const selection = useRef<{ start: number; end: number } | null>(null);
@@ -249,7 +247,6 @@ function GameView() {
     setMode(next);
     setGame(loadGame(newGame(chosen, id)));
     say('');
-    setCopyFallback('');
     setRevealing(-1);
   }
   function again() {
@@ -262,7 +259,6 @@ function GameView() {
     );
     setMode('practice');
     say('');
-    setCopyFallback('');
     setRevealing(-1);
   }
   function chooseLength(value: unknown) {
@@ -276,7 +272,6 @@ function GameView() {
     setPracticeLength(next);
     setGame(loadGame(newGame(pickPractice(next), practiceId(next))));
     setGivingUp(false);
-    setCopyFallback('');
     say('');
     try {
       localStorage.setItem(PRACTICE_LENGTH_KEY, String(next));
@@ -376,23 +371,6 @@ function GameView() {
         );
     }, 650);
   }
-  async function copy() {
-    if (!game) return;
-    const text =
-      language === 'en'
-        ? shareText(game, day)
-            .replace('ことば', 'Kotoba')
-            .replace('練習', 'Practice')
-            .replace(/(\d)文字/, '$1 kana')
-        : shareText(game, day);
-    try {
-      await navigator.clipboard.writeText(text);
-      say('結果をコピーしました。');
-    } catch {
-      setCopyFallback(text);
-      say('下の結果を選択してコピーできます。');
-    }
-  }
 
   return (
     <main className="shell">
@@ -404,7 +382,7 @@ function GameView() {
           </span>
         </h1>
         <div className="header-actions">
-          <span className="subtitle">{t('かなのパズル')}</span>
+          <LanguageSwitcher />
           <PlayerTools
             game={game}
             day={day}
@@ -582,10 +560,7 @@ function GameView() {
                       <RotateCcw size={17} />
                       {t('もう一問')}
                     </button>
-                    <button className="secondary-button" onClick={copy}>
-                      <Copy size={17} />
-                      {t('結果をコピー')}
-                    </button>
+                    {game && <ShareResult game={game} day={day} />}
                   </div>
                   <a
                     className="dictionary-link"
@@ -603,15 +578,6 @@ function GameView() {
                     <p className="next-day">
                       {t('次の一問は、この端末の時刻で0時に。')}
                     </p>
-                  )}
-                  {copyFallback && (
-                    <textarea
-                      className="share-fallback"
-                      aria-label={t('コピー用の結果')}
-                      readOnly
-                      value={copyFallback}
-                      onFocus={(e) => e.currentTarget.select()}
-                    />
                   )}
                 </section>
               ) : (
