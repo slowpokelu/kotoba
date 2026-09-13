@@ -166,8 +166,26 @@ assert.equal(
   'selection deletion retains its start',
 );
 await type('');
-for (const letter of 'konnichiha') await type(inputField().value + letter);
-assert.equal(inputField().value, 'こんにちは', 'double n works incrementally');
+inputField().focus();
+await type('n');
+assert.equal(inputField().value, 'n', 'one n stays pending');
+await type(inputField().value + 'n');
+assert.equal(inputField().value, 'ん', 'two n presses immediately finish ん');
+assert.equal(inputField().selectionStart, 1, 'caret follows the completed ん');
+assert.equal(document.activeElement, inputField(), 'double n keeps focus');
+assert.equal(document.querySelector('.tile.current > span').textContent, 'ん');
+assert.equal(saved().draft, 'ん', 'the saved draft has no leftover n');
+await click('1文字消す');
+assert.equal(inputField().value, '', 'one deletion removes the completed ん');
+for (const letter of 'shinnbunn') await type(inputField().value + letter);
+assert.equal(
+  inputField().value,
+  'しんぶん',
+  'word-final nn completes before submit',
+);
+await type('');
+for (const letter of 'konnnichiha') await type(inputField().value + letter);
+assert.equal(inputField().value, 'こんにちは', 'nn followed by ni gives んに');
 await type('ＳＨＩＮＢＵＮ');
 assert.equal(
   inputField().value,
