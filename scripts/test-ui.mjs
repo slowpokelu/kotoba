@@ -38,8 +38,9 @@ globalThis.ResizeObserver = class {
   unobserve() {}
   disconnect() {}
 };
-window.matchMedia = () => ({
-  matches: false,
+let finePointer = false;
+window.matchMedia = (query) => ({
+  matches: finePointer && query.includes('pointer: fine'),
   addEventListener() {},
   removeEventListener() {},
 });
@@ -247,6 +248,11 @@ await settle();
 assert.equal(document.activeElement, guessField, 'focus survives the reveal');
 assert.equal(guessField.readOnly, false, 'typing resumes after the reveal');
 assert.equal(saved().guesses[0], 'がっこう');
+assert.equal(
+  document.querySelector('a.guess-row'),
+  null,
+  'touch cannot open the dictionary mid-game',
+);
 await type('がっこう');
 button('回答する').focus();
 await submit();
@@ -259,8 +265,28 @@ assert.ok(text().includes('その言葉はもう試しました'));
 assert.equal(saved().guesses.length, 1);
 await type('ひま');
 await unmount();
+finePointer = true;
 await mount();
 assert.equal(document.querySelector('#guess').value, 'ひま');
+const guessLink = document.querySelector('a.guess-row');
+assert.equal(
+  guessLink?.href,
+  'https://jisho.org/search/' + encodeURIComponent('がっこう'),
+  'a mouse can look up a submitted guess mid-game',
+);
+assert.equal(guessLink.target, '_blank');
+assert.equal(document.querySelectorAll('a.guess-row').length, 1);
+document.querySelector('#guess').focus();
+assert.equal(
+  guessLink.dispatchEvent(
+    new MouseEvent('mousedown', { bubbles: true, cancelable: true }),
+  ),
+  false,
+  'pressing a guess keeps focus in the field',
+);
+await unmount();
+finePointer = false;
+await mount();
 assert.equal(saved().guesses.length, 1);
 await type('');
 await click('か');
@@ -295,6 +321,16 @@ assert.equal(
   document.querySelector('.result-card .eyebrow').textContent,
   '正解',
 );
+const rowLinks = [...document.querySelectorAll('a.guess-row')].map((a) =>
+  decodeURIComponent(a.href.replace('https://jisho.org/search/', '')),
+);
+assert.equal(rowLinks[0], 'がっこう', 'finished guesses link on touch');
+assert.equal(
+  rowLinks.at(-1),
+  answers.find((a) => a.reading === saved().answer).spelling,
+  'the solved row looks up the answer spelling',
+);
+assert.equal(rowLinks.length, saved().guesses.length);
 await unmount();
 await mount();
 assert.ok(
