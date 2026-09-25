@@ -279,6 +279,11 @@ assert.equal(
   'a mouse can look up a submitted guess mid-game',
 );
 assert.equal(guessLink.target, '_blank');
+assert.equal(
+  guessLink.title,
+  '辞書で見る',
+  'hovering a guess explains the link',
+);
 assert.equal(document.querySelectorAll('a.guess-row').length, 1);
 document.querySelector('#guess').focus();
 assert.equal(

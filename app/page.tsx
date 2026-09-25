@@ -572,6 +572,7 @@ function GameView() {
                       target="_blank"
                       rel="noreferrer"
                       aria-label={t(label + '、辞書で見る')}
+                      title={t('辞書で見る')}
                       // Keep the caret in the guess field while playing.
                       onMouseDown={(e) => e.preventDefault()}
                     >
