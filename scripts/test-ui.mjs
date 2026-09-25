@@ -94,6 +94,18 @@ const submit = async () => {
       .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })),
   );
 };
+// Compare DOM nodes by identity. A failing assert.equal would diff jsdom's
+// whole object graph, which never finishes and gets the CI runner killed.
+const sameNode = (actual, expected, message) =>
+  assert.ok(actual === expected, message);
+const absent = (selector, message = selector + ' is absent') =>
+  assert.ok(!document.querySelector(selector), message);
+const waitFor = async (condition) => {
+  for (let i = 0; i < 40 && !condition(); i++)
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 25));
+    });
+};
 const settle = async () => {
   await act(async () => {
     await new Promise((r) => setTimeout(r, 700));
@@ -113,10 +125,10 @@ assert.equal(document.documentElement.lang, 'en', 'English is the default');
 assert.equal(document.querySelector('#language-en').textContent.trim(), 'en');
 assert.equal(document.querySelector('#language-ja').textContent.trim(), 'jp');
 assert.ok(document.querySelector('#language-en u'));
-assert.equal(document.querySelector('#language-ja u'), null);
+absent('#language-ja u');
 await click('日本語');
 assert.ok(document.querySelector('#language-ja u'));
-assert.equal(document.querySelector('#language-en u'), null);
+absent('#language-en u');
 assert.equal(document.querySelectorAll('.board .tile').length, 32);
 assert.equal(document.querySelectorAll('.guess-row .current').length, 4);
 const inputField = () => document.querySelector('#guess');
@@ -132,11 +144,7 @@ assert.equal(
 );
 await act(async () => document.querySelector('#language-ja').click());
 inputField().focus();
-assert.equal(
-  document.activeElement,
-  inputField(),
-  'conversion preserves focus',
-);
+sameNode(document.activeElement, inputField(), 'conversion preserves focus');
 assert.equal(inputField().selectionStart, 4, 'caret follows converted kana');
 await type('がっk');
 assert.deepEqual(
@@ -173,7 +181,7 @@ assert.equal(inputField().value, 'n', 'one n stays pending');
 await type(inputField().value + 'n');
 assert.equal(inputField().value, 'ん', 'two n presses immediately finish ん');
 assert.equal(inputField().selectionStart, 1, 'caret follows the completed ん');
-assert.equal(document.activeElement, inputField(), 'double n keeps focus');
+sameNode(document.activeElement, inputField(), 'double n keeps focus');
 assert.equal(document.querySelector('.tile.current > span').textContent, 'ん');
 assert.equal(saved().draft, 'ん', 'the saved draft has no leftover n');
 await click('1文字消す');
@@ -240,23 +248,19 @@ await act(async () => {
 const guessField = document.querySelector('#guess');
 guessField.focus();
 await submit();
-assert.equal(document.activeElement, guessField, 'submission preserves focus');
+sameNode(document.activeElement, guessField, 'submission preserves focus');
 assert.equal(guessField.disabled, false, 'reveal must not disable the input');
 assert.equal(guessField.readOnly, true, 'reveal temporarily locks editing');
 await submit();
 await settle();
-assert.equal(document.activeElement, guessField, 'focus survives the reveal');
+sameNode(document.activeElement, guessField, 'focus survives the reveal');
 assert.equal(guessField.readOnly, false, 'typing resumes after the reveal');
 assert.equal(saved().guesses[0], 'がっこう');
-assert.equal(
-  document.querySelector('a.guess-row'),
-  null,
-  'touch cannot open the dictionary mid-game',
-);
+absent('a.guess-row', 'touch cannot open the dictionary mid-game');
 await type('がっこう');
 button('回答する').focus();
 await submit();
-assert.equal(
+sameNode(
   document.activeElement,
   guessField,
   'button submission returns focus even for errors',
@@ -346,11 +350,7 @@ Object.defineProperty(navigator, 'clipboard', {
   configurable: true,
 });
 await click('結果をコピー');
-assert.equal(
-  document.querySelector('[role="dialog"]'),
-  null,
-  'copy does not open a panel',
-);
+absent('[role="dialog"]', 'copy does not open a panel');
 assert.ok(document.querySelector('.share-fallback'), 'copy fallback appears');
 const fallbackResult = document.querySelector('.share-fallback').value;
 assert.ok(fallbackResult.endsWith('https://slowpokelu.github.io/kotoba/'));
@@ -364,7 +364,7 @@ navigator.clipboard.writeText = async (value) => {
 };
 await click('結果をコピー');
 assert.equal(copiedResult, fallbackResult, 'one click copies the result');
-assert.equal(document.querySelector('.share-fallback'), null);
+absent('.share-fallback');
 assert.ok(text().includes('結果をコピーしました'));
 navigator.clipboard.writeText = async () => {
   throw new Error('denied');
@@ -427,7 +427,8 @@ assert.deepEqual(
   ['終了して答えを見る', '続ける'],
   'give up is left and continue is right',
 );
-assert.equal(
+await waitFor(() => document.activeElement === button('続ける'));
+sameNode(
   document.activeElement,
   button('続ける'),
   'continue keeps initial focus',
@@ -579,7 +580,7 @@ for (const n of [3, 5, 6]) {
   await type(round.answer);
   await click('Daily');
   assert.equal(document.querySelectorAll('.board .tile').length, 32);
-  assert.equal(document.querySelector('.length-picker'), null);
+  absent('.length-picker');
   await click('Practice');
   assert.equal(
     document.querySelector('#guess').value,
