@@ -149,6 +149,16 @@ function GameView() {
     }
     selection.current = null;
   }, [game]);
+  // A mouse can look up guesses mid-game; touch waits for the result so a
+  // stray tap near the keyboard never leaves the puzzle.
+  const [finePointer, setFinePointer] = useState(false);
+  useEffect(() => {
+    const media = window.matchMedia('(hover: hover) and (pointer: fine)');
+    const update = () => setFinePointer(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
   const currentDay = useRef('');
   const modeRef = useRef(mode);
   useEffect(() => {
@@ -497,18 +507,20 @@ function GameView() {
                   const active =
                     !!game && !finished && r === game.guesses.length;
                   const letters = guess ? [...guess] : active ? tiles : [];
-                  return (
-                    <div
-                      className={
-                        'guess-row ' + (revealing === r ? 'reveal' : '')
-                      }
-                      key={r}
-                      aria-label={t(
-                        guess
-                          ? '第' + (r + 1) + '回答：' + guess
-                          : '第' + (r + 1) + '回答',
-                      )}
-                    >
+                  const lookup =
+                    guess && (finished || finePointer) && revealing !== r
+                      ? 'https://jisho.org/search/' +
+                        encodeURIComponent(
+                          guess === game?.answer && answer
+                            ? answer.spelling
+                            : guess,
+                        )
+                      : '';
+                  const label = guess
+                    ? '第' + (r + 1) + '回答：' + guess
+                    : '第' + (r + 1) + '回答';
+                  const cells = (
+                    <>
                       <span
                         className={'row-number ' + (active ? 'active' : '')}
                       >
@@ -548,6 +560,26 @@ function GameView() {
                           </span>
                         );
                       })}
+                    </>
+                  );
+                  const className =
+                    'guess-row ' + (revealing === r ? 'reveal' : '');
+                  return lookup ? (
+                    <a
+                      className={className}
+                      key={r}
+                      href={lookup}
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label={t(label + '、辞書で見る')}
+                      // Keep the caret in the guess field while playing.
+                      onMouseDown={(e) => e.preventDefault()}
+                    >
+                      {cells}
+                    </a>
+                  ) : (
+                    <div className={className} key={r} aria-label={t(label)}>
+                      {cells}
                     </div>
                   );
                 })}
