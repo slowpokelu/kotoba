@@ -62,6 +62,7 @@ import {
   shareText,
   labels,
   marks,
+  HINTS_KEY,
 } from '@/lib/game.mjs';
 
 type Game = {
@@ -71,9 +72,15 @@ type Game = {
   guesses: string[];
   draft: string;
   gaveUp?: boolean;
+  hints?: boolean;
 };
 type Mode = 'daily' | 'practice';
-type Status = 'correct' | 'present' | 'absent';
+type Status =
+  | 'correct'
+  | 'present'
+  | 'near-correct'
+  | 'near-present'
+  | 'absent';
 const rows = [
   'あかさたなはまやらわ',
   'いきしちにひみ　りを',
@@ -119,6 +126,7 @@ function GameView() {
   const { t, language } = useLanguage();
   const [mode, setMode] = useState<Mode>('daily');
   const [practiceLength, setPracticeLength] = useState(4);
+  const [hintSetting, setHintSetting] = useState(false);
   const [day, setDay] = useState('');
   const [game, setGame] = useState<Game | null>(null);
   const [message, setMessage] = useState('');
@@ -171,6 +179,7 @@ function GameView() {
     setDay(today);
     try {
       setPracticeLength(savedPracticeLength(localStorage));
+      setHintSetting(localStorage.getItem(HINTS_KEY) === '1');
     } catch {
       /* Use four kana if browser storage is unavailable. */
     }
@@ -216,8 +225,10 @@ function GameView() {
   const length = mode === 'daily' ? 4 : practiceLength;
   const aliases = aliasesFor(length);
   const finished = result !== 'playing';
+  // A round follows the setting until its first guess, then keeps that mode.
+  const showHints = game?.guesses.length ? !!game.hints : hintSetting;
   const keys = (
-    game ? keyboardStates(game.guesses, game.answer) : {}
+    game ? keyboardStates(game.guesses, game.answer, game.hints) : {}
   ) as Record<string, Status>;
   const draft = game ? resolveGuess(game.draft, aliases) : '';
   const tiles = [...previewKana(draft)].slice(0, length);
@@ -360,6 +371,7 @@ function GameView() {
     busy.current = true;
     const next = {
       ...current,
+      ...(current.guesses.length === 0 && hintSetting ? { hints: true } : {}),
       guesses: [...current.guesses, guess],
       draft: '',
     };
@@ -378,7 +390,7 @@ function GameView() {
         say(
           guess +
             '：' +
-            evaluate(guess, next.answer)
+            evaluate(guess, next.answer, next.hints)
               .map(
                 (s: string, i: number) =>
                   i + 1 + '文字目 ' + labels[s as Status],
@@ -395,6 +407,7 @@ function GameView() {
         ? shareText(game, day)
             .replace('ことば', 'Kotoba')
             .replace('練習', 'Practice')
+            .replace(' · ヒント', ' · Hints')
             .replace(/(\d)文字/, '$1 kana')
         : shareText(game, day);
     try {
@@ -423,9 +436,19 @@ function GameView() {
             day={day}
             busy={revealing >= 0}
             practiceLength={practiceLength}
+            hints={hintSetting}
+            onHintsChange={(value) => {
+              setHintSetting(value);
+              try {
+                localStorage.setItem(HINTS_KEY, value ? '1' : '0');
+              } catch {
+                setStorageWarning(true);
+              }
+            }}
             onImport={() => {
               if (!game || busy.current) return;
               const nextLength = savedPracticeLength(localStorage);
+              setHintSetting(localStorage.getItem(HINTS_KEY) === '1');
               setPracticeLength(nextLength);
               const restored = loadGame(
                 mode === 'daily'
@@ -503,7 +526,9 @@ function GameView() {
                 {Array.from({ length: LIMIT }, (_, r) => {
                   const guess = game?.guesses[r];
                   const statuses =
-                    guess && game ? evaluate(guess, game.answer) : [];
+                    guess && game
+                      ? evaluate(guess, game.answer, game.hints)
+                      : [];
                   const active =
                     !!game && !finished && r === game.guesses.length;
                   const letters = guess ? [...guess] : active ? tiles : [];
@@ -594,6 +619,13 @@ function GameView() {
                   <i className="present">●</i>
                   {t('別の位置')}
                 </span>
+                {showHints && (
+                  <span>
+                    <i className="near-correct">✓</i>
+                    <i className="near-present">●</i>
+                    {t('濁点・大小違い')}
+                  </span>
+                )}
                 <span>
                   <i className="absent">−</i>
                   {t('なし')}
@@ -894,6 +926,12 @@ function GameView() {
                 <dd>{t('その文字は含まれない。')}</dd>
               </div>
             </dl>
+            <h3>{t('ヒント表示')}</h3>
+            <p>
+              {t(
+                '設定でオンにすると、濁点・半濁点・大小だけが違うかなを枠線で示します。青い枠と✓は同じ位置、黄色い枠と●は別の位置。「き」に対して「ぎ」、「つ」に対して「っ」や「づ」などです。モードは各問題の最初の回答で決まります。',
+              )}
+            </p>
             <h3>{t('かなの数え方')}</h3>
             <p>
               {t(

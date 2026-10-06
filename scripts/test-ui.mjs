@@ -671,6 +671,84 @@ assert.equal(
   48,
   'length survives reload',
 );
+// Near hints are off by default and locked into a round at its first guess.
+await unmount();
+localStorage.clear();
+await mount();
+const { evaluate: score } = await import('../lib/game.mjs');
+const { allValid } = await import('../lib/word-pools.mjs');
+absent('.legend .near-correct', 'hints are off by default');
+await click('Settings');
+const hintSwitch = () => document.querySelector('[role="switch"]');
+assert.ok(hintSwitch(), 'settings has a hint switch');
+await act(async () => hintSwitch().click());
+assert.equal(localStorage.getItem('kotoba:hints'), '1');
+await click('Close');
+assert.ok(
+  document.querySelector('.legend .near-correct'),
+  'the legend explains outlines before the first guess',
+);
+const hintAnswer = saved().answer;
+const hintGuess = [...allValid].find(
+  (w) =>
+    Array.from(w).length === 4 &&
+    w !== hintAnswer &&
+    score(w, hintAnswer, true).some((s) => s.startsWith('near-')),
+);
+assert.ok(hintGuess, 'the dictionary has a guess with a near hint');
+const expected = score(hintGuess, hintAnswer, true);
+const rowStatuses = () =>
+  [...document.querySelectorAll('.guess-row')[0].querySelectorAll('.tile')].map(
+    (tile) =>
+      ['correct', 'present', 'near-correct', 'near-present', 'absent'].find(
+        (s) => tile.classList.contains(s),
+      ),
+  );
+await type(hintGuess);
+await submit();
+await settle();
+assert.equal(saved().hints, true, 'the first guess locks hints into the round');
+assert.deepEqual(rowStatuses(), expected, 'tiles show near hints');
+const near = expected.findIndex((s) => s.startsWith('near-'));
+assert.ok(
+  document
+    .querySelectorAll('.guess-row')[0]
+    .querySelectorAll('.tile')
+    [near].getAttribute('aria-label')
+    .includes('variant'),
+  'screen readers hear the near hint',
+);
+const nearKey = () =>
+  [...document.querySelectorAll('.kana-key')].find(
+    (b) => b.firstChild?.textContent === Array.from(hintGuess)[near],
+  );
+if (!nearKey()) await click('Voiced / small');
+assert.ok(
+  nearKey().classList.contains(expected[near]),
+  'the tried key shows the near hint',
+);
+await click('Settings');
+await act(async () => hintSwitch().click());
+assert.equal(localStorage.getItem('kotoba:hints'), '0');
+assert.ok(
+  text().includes('A puzzle you have started keeps its mode'),
+  'settings explain the lock',
+);
+await click('Close');
+assert.deepEqual(rowStatuses(), expected, 'switching off keeps the round');
+await unmount();
+await mount();
+assert.deepEqual(rowStatuses(), expected, 'the hinted round survives reload');
+await click('Practice');
+absent('.legend .near-correct', 'a new round follows the switched-off setting');
+await type(hintGuess);
+await submit();
+await settle();
+assert.equal(
+  JSON.parse(localStorage.getItem('kotoba:v1:practice')).hints,
+  undefined,
+  'rounds started with hints off stay off',
+);
 await unmount();
 URL.createObjectURL = oldURL;
 URL.revokeObjectURL = oldRevoke;

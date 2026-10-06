@@ -10,6 +10,7 @@ import {
   DialogClose,
 } from '@/components/ui/dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Switch } from '@/components/ui/switch';
 import { allAnswers as answers, allValid as valid } from '@/lib/word-pools.mjs';
 import {
   THEME_KEY,
@@ -20,7 +21,12 @@ import {
   parseBackup,
   mergeGames,
 } from '@/lib/profile.mjs';
-import { localDay, PRACTICE_LENGTH_KEY } from '@/lib/game.mjs';
+import {
+  localDay,
+  outcome,
+  HINTS_KEY,
+  PRACTICE_LENGTH_KEY,
+} from '@/lib/game.mjs';
 import { useLanguage } from './language';
 
 type Game = {
@@ -30,6 +36,7 @@ type Game = {
   guesses: string[];
   draft: string;
   gaveUp?: boolean;
+  hints?: boolean;
 };
 type Backup = {
   app: string;
@@ -37,6 +44,7 @@ type Backup = {
   theme: string;
   language?: string;
   practiceLength?: number;
+  hints?: boolean;
   games: Game[];
 };
 
@@ -45,12 +53,16 @@ export function PlayerTools({
   day,
   busy,
   practiceLength,
+  hints,
+  onHintsChange,
   onImport,
 }: {
   game: Game | null;
   day: string;
   busy: boolean;
   practiceLength: number;
+  hints: boolean;
+  onHintsChange: (value: boolean) => void;
   onImport: () => void;
 }) {
   const { language, setLanguage, t } = useLanguage();
@@ -112,6 +124,7 @@ export function PlayerTools({
         theme,
         language,
         practiceLength,
+        hints,
         games,
       };
       const url = URL.createObjectURL(
@@ -164,6 +177,8 @@ export function PlayerTools({
       if (pending.language) writes.push(['kotoba:language', pending.language]);
       if (pending.practiceLength)
         writes.push([PRACTICE_LENGTH_KEY, String(pending.practiceLength)]);
+      if (pending.hints !== undefined)
+        writes.push([HINTS_KEY, pending.hints ? '1' : '0']);
       for (const [key, value] of writes) {
         const old = localStorage.getItem(key);
         if (old === value) continue;
@@ -322,6 +337,29 @@ export function PlayerTools({
                     </label>
                   ))}
                 </RadioGroup>
+              </section>
+              <section className="settings-section">
+                <h3 id="hints-heading">{t('ヒント表示')}</h3>
+                <label className="switch-row">
+                  <span>
+                    {t('濁点・半濁点・大小だけが違うかなを、枠線で示します。')}
+                  </span>
+                  <Switch
+                    checked={hints}
+                    onCheckedChange={(value) => onHintsChange(value)}
+                    aria-labelledby="hints-heading"
+                  />
+                </label>
+                {game &&
+                  game.guesses.length > 0 &&
+                  outcome(game) === 'playing' &&
+                  !!game.hints !== hints && (
+                    <p className="panel-note">
+                      {t(
+                        '回答を始めた問題はそのまま。次の問題から切り替わります。',
+                      )}
+                    </p>
+                  )}
               </section>
               <section className="settings-section">
                 <h3>{t('記録のバックアップ')}</h3>

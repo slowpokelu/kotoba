@@ -376,6 +376,50 @@ a {
   border-color: #dbe1eb;
   color: #56647d;
 }
+/* Hint mode: an outline instead of a fill means only 濁点, 半濁点 or size
+   differs. The mark keeps its meaning: ✓ this spot, ● elsewhere. */
+.tile.near-correct,
+.kana-key.near-correct,
+.legend i.near-correct,
+.tile.near-present,
+.kana-key.near-present,
+.legend i.near-present {
+  border-width: 3px;
+  border-style: solid;
+  color: #172849;
+}
+/* A light tint keeps near tiles distinct from the empty tiles being typed. */
+.tile.near-correct,
+.kana-key.near-correct,
+.legend i.near-correct {
+  background: #e4eafb;
+  border-color: #2b50bf;
+}
+.tile.near-present,
+.kana-key.near-present,
+.legend i.near-present {
+  background: #fbf0d6;
+  border-color: #b07a06;
+}
+.tile.near-correct small,
+.kana-key.near-correct small,
+.legend i.near-correct {
+  color: #2b50bf;
+}
+.tile.near-present small,
+.kana-key.near-present small,
+.legend i.near-present {
+  color: #8a5f00;
+}
+.kana-key.near-correct,
+.kana-key.near-present,
+.legend i.near-correct,
+.legend i.near-present {
+  border-width: 2px;
+}
+.legend i + i {
+  margin-left: -1px;
+}
 .tile.current.filled {
   border-color: #254cca;
 }
@@ -1016,6 +1060,15 @@ a {
   border-top: 1px solid var(--border);
   padding-top: 20px;
 }
+.switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1.6;
+}
 .theme-options[data-slot] {
   grid-template-columns: 1fr;
   gap: 8px;
@@ -1098,11 +1151,17 @@ a {
 .import-confirm p {
   margin-bottom: 12px;
 }
-[data-theme='dark'] .tile:not(.correct):not(.present):not(.absent) {
+[data-theme='dark']
+  .tile:not(.correct):not(.present):not(.absent):not(.near-correct):not(
+    .near-present
+  ) {
   background: #1a2639;
   border-color: #34445f;
 }
-[data-theme='dark'] .tile.current:not(.correct):not(.present):not(.absent) {
+[data-theme='dark']
+  .tile.current:not(.correct):not(.present):not(.absent):not(.near-correct):not(
+    .near-present
+  ) {
   background: #223149;
   border-color: #829cca;
 }
@@ -1116,7 +1175,11 @@ a {
 [data-theme='dark'] .row-number.active {
   color: var(--primary);
 }
-[data-theme='dark'] .keyboard button:not(.correct):not(.present):not(.absent),
+[data-theme='dark']
+  .keyboard
+  button:not(.correct):not(.present):not(.absent):not(.near-correct):not(
+    .near-present
+  ),
 [data-theme='dark'] .keyboard-tools button {
   background: #223149;
   border-color: #43536e;
@@ -1125,7 +1188,9 @@ a {
 }
 [data-theme='dark']
   .keyboard
-  button:not(.correct):not(.present):not(.absent):hover,
+  button:not(.correct):not(.present):not(.absent):not(.near-correct):not(
+    .near-present
+  ):hover,
 [data-theme='dark'] .keyboard-tools button:hover:not(:disabled),
 [data-theme='dark'] .icon-button:hover,
 [data-theme='dark'] .secondary-button:hover {
@@ -1137,6 +1202,36 @@ a {
   background: #303b4c;
   border-color: #303b4c;
   color: #acb8cc;
+}
+[data-theme='dark'] .tile.near-correct,
+[data-theme='dark'] .kana-key.near-correct,
+[data-theme='dark'] .legend i.near-correct,
+[data-theme='dark'] .tile.near-present,
+[data-theme='dark'] .kana-key.near-present,
+[data-theme='dark'] .legend i.near-present {
+  color: #e3eaf7;
+}
+[data-theme='dark'] .tile.near-correct,
+[data-theme='dark'] .kana-key.near-correct,
+[data-theme='dark'] .legend i.near-correct {
+  background: #1f2f5c;
+  border-color: #7f9cff;
+}
+[data-theme='dark'] .tile.near-present,
+[data-theme='dark'] .kana-key.near-present,
+[data-theme='dark'] .legend i.near-present {
+  background: #3b3016;
+  border-color: #efbc4d;
+}
+[data-theme='dark'] .tile.near-correct small,
+[data-theme='dark'] .kana-key.near-correct small,
+[data-theme='dark'] .legend i.near-correct {
+  color: #9fb4ff;
+}
+[data-theme='dark'] .tile.near-present small,
+[data-theme='dark'] .kana-key.near-present small,
+[data-theme='dark'] .legend i.near-present {
+  color: #f3cb74;
 }
 [data-theme='dark'] .mode-list[data-slot] {
   background: #192539;
