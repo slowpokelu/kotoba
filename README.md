@@ -9,6 +9,7 @@ A Japanese word puzzle with eight guesses. One four-kana word a day, plus unlimi
 - Light, dark and system themes.
 - Automatic romaji-to-hiragana input, Japanese IME and on-screen kana keyboard.
 - Daily statistics saved in your browser.
+- Installable to the home screen and playable offline after the first visit.
 - JSON export/import for progress and preferences. No accounts or cloud saves.
 
 ## Development
