@@ -195,6 +195,23 @@ assert.equal(
 await type('');
 for (const letter of 'konnnichiha') await type(inputField().value + letter);
 assert.equal(inputField().value, 'こんにちは', 'nn followed by ni gives んに');
+await type('かく');
+await type('かnく', 2);
+assert.equal(inputField().value, 'かnく', 'n typed mid-word stays pending');
+assert.deepEqual(
+  [...document.querySelectorAll('.tile.current > span')]
+    .map((t) => t.textContent)
+    .slice(0, 2),
+  ['か', 'く'],
+  'a pending mid-word n keeps the tile preview',
+);
+await type('かnaく', 3);
+assert.equal(inputField().value, 'かなく', 'n plus a vowel gives な mid-word');
+assert.equal(inputField().selectionStart, 2, 'caret stays after な');
+await type('かnく', 2);
+await act(async () => inputField().blur());
+assert.equal(inputField().value, 'かんく', 'leaving the field commits ん');
+inputField().focus();
 await type('ＳＨＩＮＢＵＮ');
 assert.equal(
   inputField().value,
