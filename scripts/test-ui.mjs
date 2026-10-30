@@ -39,8 +39,11 @@ globalThis.ResizeObserver = class {
   disconnect() {}
 };
 let finePointer = false;
+let coarsePointer = false;
 window.matchMedia = (query) => ({
-  matches: finePointer && query.includes('pointer: fine'),
+  matches:
+    (finePointer && query.includes('pointer: fine')) ||
+    (coarsePointer && query.includes('pointer: coarse')),
   addEventListener() {},
   removeEventListener() {},
 });
@@ -688,6 +691,32 @@ assert.equal(
   48,
   'length survives reload',
 );
+// On a touch screen, kana keys plus 決定 must not focus the field: that would
+// open the phone keyboard over the kana keys.
+await unmount();
+localStorage.clear();
+coarsePointer = true;
+await mount();
+const submitButton = () => document.querySelector('.submit-button');
+document.body.focus();
+for (const k of 'かつこう') await click(k);
+assert.equal(inputField().value, 'かつこう', 'kana keys fill the draft');
+await act(async () => submitButton().click());
+await settle();
+assert.ok(
+  document.activeElement !== inputField(),
+  'touch submit keeps the phone keyboard closed',
+);
+inputField().focus();
+await type('しんぶん');
+await act(async () => submitButton().click());
+await settle();
+sameNode(
+  document.activeElement,
+  inputField(),
+  'touch submit keeps typing focus when the field had it',
+);
+coarsePointer = false;
 // Near hints are off by default and locked into a round at its first guess.
 await unmount();
 localStorage.clear();

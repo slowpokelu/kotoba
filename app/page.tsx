@@ -353,7 +353,13 @@ function GameView() {
     )
       return;
     // Keep keyboard entry continuous, including after clicking the submit button.
-    field.current?.focus({ preventScroll: true });
+    // On touch screens only when the field already has focus: focusing it would
+    // open the phone keyboard on top of the kana keys.
+    if (
+      document.activeElement === field.current ||
+      !window.matchMedia('(pointer: coarse)').matches
+    )
+      field.current?.focus({ preventScroll: true });
     const committed = convertRomaji(current.draft, true);
     const checked = validateGuess(
       committed,
@@ -749,6 +755,8 @@ function GameView() {
                     <button
                       type="submit"
                       className="primary-button submit-button"
+                      // Tapping 決定 must not close the phone keyboard mid-typing.
+                      onPointerDown={(e) => e.preventDefault()}
                       disabled={
                         !game ||
                         !game.draft.trim() ||
