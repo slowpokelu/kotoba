@@ -894,6 +894,66 @@ await type(keeper);
 await submit();
 await settle();
 assert.equal(saved().guesses.length, 2, 'a legal guess is accepted');
+// あそび: いじわる on a 12-row board, and しりとり against the computer.
+await unmount();
+localStorage.clear();
+await mount();
+await click('Modes');
+assert.equal(
+  document.querySelectorAll('.board .guess-row').length,
+  8,
+  'いじわる starts with the usual eight rows',
+);
+await type('かいしゃ');
+await submit();
+await settle();
+const sneaky = JSON.parse(localStorage.getItem('kotoba:v1:absurd'));
+assert.deepEqual(sneaky.guesses, ['かいしゃ']);
+assert.notEqual(sneaky.answer, 'かいしゃ', 'the answer dodges');
+await act(async () =>
+  document.querySelector('[role="radio"][aria-label="Shiritori"]').click(),
+);
+const { tailKana } = await import('../lib/shiritori.mjs');
+const chainState = () =>
+  JSON.parse(localStorage.getItem('kotoba:v1:shiritori'));
+assert.equal(document.querySelectorAll('.chain-word').length, 1);
+const wordFor = (start, endsInN) =>
+  [...allValid].find(
+    (w) =>
+      Array.from(w)[0] === start &&
+      (tailKana(w) === 'ん') === endsInN &&
+      !chainState().chain.some((l) => l.word === w),
+  );
+const firstWord = chainState().chain[0].word;
+const wrong = [...allValid].find(
+  (w) => Array.from(w)[0] !== tailKana(firstWord) && tailKana(w) !== 'ん',
+);
+await type(wrong);
+await submit();
+assert.ok(
+  document.querySelector('.status.error').textContent.includes('must start'),
+  'a word with the wrong start is refused',
+);
+const mine = wordFor(tailKana(firstWord), false);
+await type(mine);
+await submit();
+await act(async () => {
+  await new Promise((r) => setTimeout(r, 600));
+});
+assert.equal(chainState().chain[1].word, mine, 'your word joins the chain');
+assert.equal(chainState().chain.length, 3, 'the computer replies');
+const loser = wordFor(tailKana(chainState().chain[2].word), true);
+await type(loser);
+await submit();
+assert.equal(chainState().end, 'n', 'ending in ん loses');
+assert.ok(document.querySelector('.result-card'), 'the round ends');
+await unmount();
+await mount();
+await click('Modes');
+assert.ok(
+  document.querySelector('.shiritori .result-card'),
+  'しりとり and its result survive a reload',
+);
 await unmount();
 URL.createObjectURL = oldURL;
 URL.revokeObjectURL = oldRevoke;

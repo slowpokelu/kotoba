@@ -13,7 +13,7 @@
     "build": "vinext build",
     "start": "wrangler dev --config dist/server/wrangler.json",
     "lint": "oxlint app lib scripts",
-    "test": "node --test lib/game.test.mjs lib/profile.test.mjs lib/kana-input.test.mjs && node --import tsx scripts/test-ui.mjs",
+    "test": "node --test lib/game.test.mjs lib/profile.test.mjs lib/kana-input.test.mjs lib/modes.test.mjs && node --import tsx scripts/test-ui.mjs",
     "dictionary:update": "node scripts/update-dictionary.mjs",
     "format": "oxfmt"
   },

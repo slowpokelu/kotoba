@@ -24,6 +24,7 @@ import {
 import { answers } from '@/lib/answers.mjs';
 import { convertRomaji, previewKana } from '@/lib/kana-input.mjs';
 import { KanaKeyboard, useKanaField } from './kana-input';
+import { Shiritori } from './shiritori';
 import { PlayerTools } from './player-tools';
 import { LanguageProvider, LanguageSwitcher, useLanguage } from './language';
 import {
@@ -43,6 +44,9 @@ import {
 } from '@/lib/word-pools.mjs';
 import {
   LIMIT,
+  limitFor,
+  dodge,
+  PLAY_MODE_KEY,
   PRACTICE_LENGTHS,
   PRACTICE_LENGTH_KEY,
   practiceId,
@@ -66,7 +70,10 @@ import {
 import { gameKey } from '@/lib/profile.mjs';
 import type { Game, Status } from '@/lib/types';
 
-type Mode = 'daily' | 'practice';
+type Mode = 'daily' | 'practice' | 'play';
+type PlayMode = 'absurd' | 'shiritori';
+// いじわる picks from the everyday four-kana words.
+const absurdPool = answersFor(4).map((a) => a.reading);
 function loadGame(fallback: Game) {
   try {
     return restoreGame(
@@ -119,6 +126,7 @@ export default function Home() {
 function GameView() {
   const { t, language } = useLanguage();
   const [mode, setMode] = useState<Mode>('daily');
+  const [playMode, setPlayMode] = useState<PlayMode>('absurd');
   const [practiceLength, setPracticeLength] = useState(4);
   const [hintSetting, setHintSetting] = useState(false);
   const [hardSetting, setHardSetting] = useState(false);
@@ -137,6 +145,7 @@ function GameView() {
   const [shake, setShake] = useState(0);
   const [canShare, setCanShare] = useState(false);
   const againButton = useRef<HTMLButtonElement>(null);
+  const boardRef = useRef<HTMLDivElement>(null);
   const continueButton = useRef<HTMLButtonElement>(null);
   const busy = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -189,7 +198,7 @@ function GameView() {
   // On a computer, typing anywhere goes into the field.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const input = field.current;
+      const input = document.getElementById('guess') as HTMLInputElement;
       const target = e.target as HTMLElement | null;
       if (
         !input ||
@@ -208,7 +217,7 @@ function GameView() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [field]);
+  }, []);
   const currentDay = useRef('');
   const modeRef = useRef(mode);
   useEffect(() => {
@@ -223,6 +232,8 @@ function GameView() {
       setPracticeLength(savedPracticeLength(localStorage));
       setHintSetting(localStorage.getItem(HINTS_KEY) === '1');
       setHardSetting(localStorage.getItem(HARD_KEY) === '1');
+      if (localStorage.getItem(PLAY_MODE_KEY) === 'shiritori')
+        setPlayMode('shiritori');
     } catch {
       /* Use four kana if browser storage is unavailable. */
     }
@@ -265,7 +276,13 @@ function GameView() {
   }, [game]);
 
   const result = game ? outcome(game) : 'playing';
-  const length = mode === 'daily' ? 4 : practiceLength;
+  const length = mode === 'practice' ? practiceLength : 4;
+  const limit = game ? limitFor(game.id) : LIMIT;
+  const absurd = game?.id === 'absurd';
+  const turn = game ? game.guesses.length + (result === 'playing' ? 1 : 0) : 1;
+  // いじわる adds rows as needed beyond the usual eight, and scrolls to them.
+  const rows = absurd ? Math.max(LIMIT, turn) : limit;
+  const shiritori = mode === 'play' && playMode === 'shiritori';
   const aliases = aliasesFor(length);
   const finished = result !== 'playing';
   // A round follows the setting until its first guess, then keeps that mode.
@@ -288,6 +305,17 @@ function GameView() {
     )
       againButton.current?.focus({ preventScroll: true });
   }, [finished, revealing]);
+  // Keep the current row in view on a scrolling board, also when the board
+  // changes size (the phone keyboard opening or closing).
+  useEffect(() => {
+    const board = boardRef.current;
+    if (!board?.dataset.scroll) return;
+    const toCurrent = () => (board.scrollTop = board.scrollHeight);
+    toCurrent();
+    const observer = new ResizeObserver(toCurrent);
+    observer.observe(board);
+    return () => observer.disconnect();
+  }, [game?.guesses.length, rows]);
   function savePreference(key: string, value: string) {
     try {
       localStorage.setItem(key, value);
@@ -309,32 +337,46 @@ function GameView() {
     setGame(next);
     say('');
   }
+  // The game a tab opens: today's puzzle, the saved practice round, or いじわる.
+  function gameFor(next: Mode, length = practiceLength) {
+    if (next === 'daily')
+      return loadGame(
+        newGame(
+          dailyAnswer(currentDay.current, answers).reading,
+          'daily:' + currentDay.current,
+        ),
+      );
+    if (next === 'practice')
+      return loadGame(newGame(pickPractice(length), practiceId(length)));
+    return loadGame(newGame(pickPractice(4), 'absurd'));
+  }
   function switchMode(value: unknown) {
     const next = value as Mode;
     if (next === mode || busy.current) return;
-    const id =
-      next === 'daily'
-        ? 'daily:' + currentDay.current
-        : practiceId(practiceLength);
-    const chosen =
-      next === 'daily'
-        ? dailyAnswer(currentDay.current, answers).reading
-        : pickPractice(practiceLength);
     setMode(next);
-    setGame(loadGame(newGame(chosen, id)));
+    setGame(gameFor(next));
     say('');
     setCopyFallback('');
     setRevealing(-1);
   }
+  function choosePlayMode(value: unknown) {
+    const next = value as PlayMode;
+    if (next === playMode || busy.current) return;
+    setPlayMode(next);
+    say('');
+    savePreference(PLAY_MODE_KEY, next);
+  }
   function again() {
     if (busy.current) return;
     setGame(
-      newGame(
-        pickPractice(practiceLength, game?.answer),
-        practiceId(practiceLength),
-      ),
+      absurd
+        ? newGame(pickPractice(4, game?.answer), 'absurd')
+        : newGame(
+            pickPractice(practiceLength, game?.answer),
+            practiceId(practiceLength),
+          ),
     );
-    setMode('practice');
+    if (!absurd) setMode('practice');
     say('');
     setCopyFallback('');
     setRevealing(-1);
@@ -404,11 +446,16 @@ function GameView() {
       return;
     }
     busy.current = true;
-    const next = {
+    // A round takes its modes at the first guess; いじわる then dodges.
+    const round = {
       ...current,
       ...(current.guesses.length === 0 && hintSetting ? { hints: true } : {}),
       ...(current.guesses.length === 0 && hardSetting ? { hard: true } : {}),
-      guesses: [...current.guesses, guess],
+    };
+    const next = {
+      ...round,
+      answer: absurd ? dodge(round, guess, absurdPool) : round.answer,
+      guesses: [...round.guesses, guess],
       draft: '',
     };
     gameRef.current = next;
@@ -470,6 +517,33 @@ function GameView() {
     }
   }
 
+  const playPicker = (
+    <RadioGroup
+      className="length-options play-options"
+      aria-label={t('あそび')}
+      value={playMode}
+      onValueChange={choosePlayMode}
+      disabled={revealing >= 0}
+    >
+      {(['absurd', 'shiritori'] as const).map((m) => (
+        <label
+          className="length-choice play-choice"
+          key={m}
+          onPointerDown={(e) => e.preventDefault()}
+        >
+          <RadioGroupItem
+            value={m}
+            aria-label={t(m === 'absurd' ? 'いじわる' : 'しりとり')}
+            className="length-radio"
+          />
+          <span aria-hidden="true">
+            {t(m === 'absurd' ? 'いじわる' : 'しりとり')}
+          </span>
+        </label>
+      ))}
+    </RadioGroup>
+  );
+
   return (
     <main className={'shell' + (typing ? ' typing' : '')}>
       <header className="masthead">
@@ -482,7 +556,7 @@ function GameView() {
         <div className="header-actions">
           <LanguageSwitcher />
           <PlayerTools
-            game={game}
+            game={shiritori ? null : game}
             day={day}
             busy={revealing >= 0}
             practiceLength={practiceLength}
@@ -529,323 +603,363 @@ function GameView() {
           <TabsTrigger value="practice" disabled={revealing >= 0}>
             {t('練習')}
           </TabsTrigger>
+          <TabsTrigger value="play" disabled={revealing >= 0}>
+            {t('あそび')}
+          </TabsTrigger>
         </TabsList>
         <TabsContent value={mode} className="game-panel">
-          <section
-            className="play-area"
-            aria-label={mode === 'daily' ? t('今日の一問') : t('練習')}
-          >
-            <div className="board-column">
-              <div className="game-heading">
-                {mode === 'practice' ? (
-                  <div className="length-picker">
-                    <span id="length-label">{t('文字数')}</span>
-                    <RadioGroup
-                      className="length-options"
-                      aria-labelledby="length-label"
-                      value={String(practiceLength)}
-                      onValueChange={chooseLength}
-                      disabled={revealing >= 0}
-                    >
-                      {PRACTICE_LENGTHS.map((n) => (
-                        <label
-                          className="length-choice"
-                          key={n}
-                          onPointerDown={(e) => e.preventDefault()}
-                        >
-                          <RadioGroupItem
-                            value={String(n)}
-                            aria-label={t(`${n}文字`)}
-                            className="length-radio"
-                          />
-                          <span aria-hidden="true">{n}</span>
-                        </label>
-                      ))}
-                    </RadioGroup>
-                  </div>
-                ) : (
-                  <h2>{day ? day.replaceAll('-', ' / ') : t('今日の一問')}</h2>
-                )}
-                <span>
-                  {game
-                    ? Math.min(game.guesses.length + (finished ? 0 : 1), LIMIT)
-                    : 1}{' '}
-                  / {LIMIT}
-                </span>
-              </div>
-              <div
-                className="board"
-                data-length={length}
-                aria-label={t('8回の解答欄')}
-                aria-busy={revealing >= 0}
-              >
-                {Array.from({ length: LIMIT }, (_, r) => {
-                  const guess = game?.guesses[r];
-                  const statuses =
-                    guess && game
-                      ? evaluate(guess, game.answer, game.hints)
-                      : [];
-                  const active =
-                    !!game && !finished && r === game.guesses.length;
-                  const letters = guess ? [...guess] : active ? tiles : [];
-                  const lookup =
-                    guess && (finished || finePointer) && revealing !== r
-                      ? 'https://jisho.org/search/' +
-                        encodeURIComponent(
-                          guess === game?.answer && answer
-                            ? answer.spelling
-                            : guess,
-                        )
-                      : '';
-                  const label = guess
-                    ? '第' + (r + 1) + '回答：' + guess
-                    : '第' + (r + 1) + '回答';
-                  const cells = (
-                    <>
-                      <span
-                        className={'row-number ' + (active ? 'active' : '')}
+          {shiritori ? (
+            <Shiritori picker={playPicker} onTyping={setTyping} />
+          ) : (
+            <section
+              className="play-area"
+              aria-label={
+                mode === 'daily'
+                  ? t('今日の一問')
+                  : mode === 'practice'
+                    ? t('練習')
+                    : t('いじわる')
+              }
+            >
+              <div className="board-column">
+                <div className="game-heading">
+                  {mode === 'practice' ? (
+                    <div className="length-picker">
+                      <span id="length-label">{t('文字数')}</span>
+                      <RadioGroup
+                        className="length-options"
+                        aria-labelledby="length-label"
+                        value={String(practiceLength)}
+                        onValueChange={chooseLength}
+                        disabled={revealing >= 0}
                       >
-                        {String(r + 1).padStart(2, '0')}
-                      </span>
-                      {Array.from({ length }, (_, c) => {
-                        const status = statuses[c] as Status | undefined;
-                        return (
-                          <span
-                            key={c}
-                            style={
-                              {
-                                '--delay': c * 85 + 'ms',
-                              } as React.CSSProperties
-                            }
-                            className={
-                              'tile ' +
-                              (status || '') +
-                              (active ? ' current' : '') +
-                              (active && c === tiles.length ? ' caret' : '') +
-                              (letters[c] ? ' filled' : '')
-                            }
-                            aria-label={t(
-                              letters[c]
-                                ? c +
-                                    1 +
-                                    '文字目 ' +
-                                    letters[c] +
-                                    (status ? '、' + labels[status] : '')
-                                : t('未入力'),
-                            )}
+                        {PRACTICE_LENGTHS.map((n) => (
+                          <label
+                            className="length-choice"
+                            key={n}
+                            onPointerDown={(e) => e.preventDefault()}
                           >
-                            <span>{letters[c] || ''}</span>
-                            {status && (
-                              <small aria-hidden="true">{marks[status]}</small>
+                            <RadioGroupItem
+                              value={String(n)}
+                              aria-label={t(`${n}文字`)}
+                              className="length-radio"
+                            />
+                            <span aria-hidden="true">{n}</span>
+                          </label>
+                        ))}
+                      </RadioGroup>
+                    </div>
+                  ) : mode === 'play' ? (
+                    playPicker
+                  ) : (
+                    <h2>
+                      {day ? day.replaceAll('-', ' / ') : t('今日の一問')}
+                    </h2>
+                  )}
+                  <span>
+                    {absurd
+                      ? t(turn + '手目')
+                      : `${Math.min(turn, limit)} / ${limit}`}
+                  </span>
+                </div>
+                <div
+                  className="board"
+                  ref={boardRef}
+                  data-length={length}
+                  data-scroll={rows > LIMIT || undefined}
+                  aria-label={absurd ? t('解答欄') : t(limit + '回の解答欄')}
+                  aria-busy={revealing >= 0}
+                >
+                  {Array.from({ length: rows }, (_, r) => {
+                    const guess = game?.guesses[r];
+                    const statuses =
+                      guess && game
+                        ? evaluate(guess, game.answer, game.hints)
+                        : [];
+                    const active =
+                      !!game && !finished && r === game.guesses.length;
+                    const letters = guess ? [...guess] : active ? tiles : [];
+                    const lookup =
+                      guess && (finished || finePointer) && revealing !== r
+                        ? 'https://jisho.org/search/' +
+                          encodeURIComponent(
+                            guess === game?.answer && answer
+                              ? answer.spelling
+                              : guess,
+                          )
+                        : '';
+                    const label = guess
+                      ? '第' + (r + 1) + '回答：' + guess
+                      : '第' + (r + 1) + '回答';
+                    const cells = (
+                      <>
+                        <span
+                          className={'row-number ' + (active ? 'active' : '')}
+                        >
+                          {String(r + 1).padStart(2, '0')}
+                        </span>
+                        {Array.from({ length }, (_, c) => {
+                          const status = statuses[c] as Status | undefined;
+                          return (
+                            <span
+                              key={c}
+                              style={
+                                {
+                                  '--delay': c * 85 + 'ms',
+                                } as React.CSSProperties
+                              }
+                              className={
+                                'tile ' +
+                                (status || '') +
+                                (active ? ' current' : '') +
+                                (active && c === tiles.length ? ' caret' : '') +
+                                (letters[c] ? ' filled' : '')
+                              }
+                              aria-label={t(
+                                letters[c]
+                                  ? c +
+                                      1 +
+                                      '文字目 ' +
+                                      letters[c] +
+                                      (status ? '、' + labels[status] : '')
+                                  : t('未入力'),
+                              )}
+                            >
+                              <span>{letters[c] || ''}</span>
+                              {status && (
+                                <small aria-hidden="true">
+                                  {marks[status]}
+                                </small>
+                              )}
+                            </span>
+                          );
+                        })}
+                      </>
+                    );
+                    const className =
+                      'guess-row' +
+                      (revealing === r ? ' reveal' : '') +
+                      (active && error && shake ? ' shake' : '');
+                    return lookup ? (
+                      <a
+                        className={className}
+                        key={r}
+                        href={lookup}
+                        target="_blank"
+                        rel="noreferrer"
+                        aria-label={t(label + '、辞書で見る')}
+                        title={t('辞書で見る')}
+                        // Keep the caret in the guess field while playing.
+                        onMouseDown={(e) => e.preventDefault()}
+                      >
+                        {cells}
+                      </a>
+                    ) : (
+                      <div
+                        className={className}
+                        key={active ? r + '-' + shake : r}
+                        aria-label={t(label)}
+                      >
+                        {cells}
+                      </div>
+                    );
+                  })}
+                </div>
+                {(showHard || showHints) && (
+                  <div
+                    className="mode-chips"
+                    aria-label={t('この問題のモード')}
+                  >
+                    {showHard && (
+                      <b className="mode-badge hard">{t('ハード')}</b>
+                    )}
+                    {showHints && (
+                      <b className="mode-badge hints">{t('ヒント')}</b>
+                    )}
+                  </div>
+                )}
+                <div className="legend" aria-label={t('色と記号の意味')}>
+                  <span>
+                    <i className="correct">✓</i>
+                    {t('位置も一致')}
+                  </span>
+                  <span>
+                    <i className="present">●</i>
+                    {t('別の位置')}
+                  </span>
+                  {showHints && (
+                    <span>
+                      <i className="near-correct">✓</i>
+                      <i className="near-present">●</i>
+                      {t('濁点・大小違い')}
+                    </span>
+                  )}
+                  <span>
+                    <i className="absent">−</i>
+                    {t('なし')}
+                  </span>
+                </div>
+              </div>
+              <div className="control-column">
+                {finished && revealing < 0 ? (
+                  <section className="result-card" aria-label={t('結果')}>
+                    <span className="eyebrow">
+                      {absurd
+                        ? result === 'won'
+                          ? t('追い詰めた！')
+                          : t('逃げ切られた')
+                        : result === 'won'
+                          ? t('正解')
+                          : t('今回の答え')}
+                    </span>
+                    <h2>{answer?.spelling}</h2>
+                    <p className="answer-reading">{game?.answer}</p>
+                    {result === 'won' && (
+                      <p>
+                        {absurd
+                          ? t(game?.guesses.length + '手で追い詰めました。')
+                          : t(
+                              game?.guesses.length +
+                                ' / ' +
+                                limit +
+                                ' 回で正解。',
                             )}
-                          </span>
-                        );
-                      })}
-                    </>
-                  );
-                  const className =
-                    'guess-row' +
-                    (revealing === r ? ' reveal' : '') +
-                    (active && error && shake ? ' shake' : '');
-                  return lookup ? (
+                      </p>
+                    )}
+                    <div className="result-actions">
+                      <button
+                        className="primary-button"
+                        ref={againButton}
+                        onClick={again}
+                      >
+                        <RotateCcw size={17} />
+                        {t('もう一問')}
+                      </button>
+                      <button className="secondary-button" onClick={copy}>
+                        {canShare ? <Share2 size={17} /> : <Copy size={17} />}
+                        {canShare ? t('結果を共有') : t('結果をコピー')}
+                      </button>
+                    </div>
                     <a
-                      className={className}
-                      key={r}
-                      href={lookup}
+                      className="dictionary-link"
+                      href={
+                        'https://jisho.org/search/' +
+                        encodeURIComponent(answer?.spelling || '')
+                      }
                       target="_blank"
                       rel="noreferrer"
-                      aria-label={t(label + '、辞書で見る')}
-                      title={t('辞書で見る')}
-                      // Keep the caret in the guess field while playing.
-                      onMouseDown={(e) => e.preventDefault()}
                     >
-                      {cells}
+                      {t('辞書で見る')}
+                      <ExternalLink size={14} />
                     </a>
-                  ) : (
-                    <div
-                      className={className}
-                      key={active ? r + '-' + shake : r}
-                      aria-label={t(label)}
-                    >
-                      {cells}
-                    </div>
-                  );
-                })}
-              </div>
-              {(showHard || showHints) && (
-                <div className="mode-chips" aria-label={t('この問題のモード')}>
-                  {showHard && <b className="mode-badge hard">{t('ハード')}</b>}
-                  {showHints && (
-                    <b className="mode-badge hints">{t('ヒント')}</b>
-                  )}
-                </div>
-              )}
-              <div className="legend" aria-label={t('色と記号の意味')}>
-                <span>
-                  <i className="correct">✓</i>
-                  {t('位置も一致')}
-                </span>
-                <span>
-                  <i className="present">●</i>
-                  {t('別の位置')}
-                </span>
-                {showHints && (
-                  <span>
-                    <i className="near-correct">✓</i>
-                    <i className="near-present">●</i>
-                    {t('濁点・大小違い')}
-                  </span>
-                )}
-                <span>
-                  <i className="absent">−</i>
-                  {t('なし')}
-                </span>
-              </div>
-            </div>
-            <div className="control-column">
-              {finished && revealing < 0 ? (
-                <section className="result-card" aria-label={t('結果')}>
-                  <span className="eyebrow">
-                    {result === 'won' ? t('正解') : t('今回の答え')}
-                  </span>
-                  <h2>{answer?.spelling}</h2>
-                  <p className="answer-reading">{game?.answer}</p>
-                  {result === 'won' && (
-                    <p>
-                      {t(game?.guesses.length + ' / ' + LIMIT + ' 回で正解。')}
-                    </p>
-                  )}
-                  <div className="result-actions">
-                    <button
-                      className="primary-button"
-                      ref={againButton}
-                      onClick={again}
-                    >
-                      <RotateCcw size={17} />
-                      {t('もう一問')}
-                    </button>
-                    <button className="secondary-button" onClick={copy}>
-                      {canShare ? <Share2 size={17} /> : <Copy size={17} />}
-                      {canShare ? t('結果を共有') : t('結果をコピー')}
-                    </button>
-                  </div>
-                  <a
-                    className="dictionary-link"
-                    href={
-                      'https://jisho.org/search/' +
-                      encodeURIComponent(answer?.spelling || '')
-                    }
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    {t('辞書で見る')}
-                    <ExternalLink size={14} />
-                  </a>
-                  {mode === 'daily' && <NextPuzzle />}
-                  {copyFallback && (
-                    <textarea
-                      className="share-fallback"
-                      aria-label={t('コピー用の結果')}
-                      readOnly
-                      value={copyFallback}
-                      onFocus={(e) => e.currentTarget.select()}
-                    />
-                  )}
-                </section>
-              ) : (
-                <>
-                  <div className="input-heading">
-                    <label htmlFor="guess">{t(`ひらがな${length}文字`)}</label>
-                    <span>{t('小さい「ゃ・ゅ・ょ・っ」も1文字')}</span>
-                  </div>
-                  <form
-                    className="guess-form"
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      submit();
-                    }}
-                  >
-                    <input
-                      id="guess"
-                      {...kana.inputProps}
-                      disabled={!game || finished}
-                      readOnly={revealing >= 0}
-                      placeholder={t('ここに入力')}
-                      aria-describedby="game-message"
-                      aria-invalid={error || undefined}
-                      onFocus={() =>
-                        setTyping(
-                          window.matchMedia('(pointer: coarse)').matches,
-                        )
-                      }
-                      onBlur={() => {
-                        setTyping(false);
-                        if (game) kana.commit();
-                      }}
-                    />
-                    <button
-                      type="submit"
-                      className="primary-button submit-button"
-                      // Tapping 決定 must not close the phone keyboard mid-typing.
-                      onPointerDown={(e) => e.preventDefault()}
-                      disabled={
-                        !game ||
-                        !game.draft.trim() ||
-                        finished ||
-                        revealing >= 0
-                      }
-                      aria-label={t('回答する')}
-                    >
-                      {t('決定')}
-                      <ArrowRight size={18} />
-                    </button>
-                  </form>
-                  <button
-                    className="text-button give-up"
-                    // Keep the field focused: closing the phone keyboard first
-                    // would move this button out from under the tap.
-                    onPointerDown={(e) => e.preventDefault()}
-                    disabled={!game || revealing >= 0}
-                    onClick={() => setGivingUp(true)}
-                  >
-                    {t('答えを見る')}
-                  </button>
-                </>
-              )}
-              <output
-                id="game-message"
-                aria-live="polite"
-                aria-atomic="true"
-                className={'status ' + (error ? 'error' : '')}
-              >
-                {error || (finished && !quiet) ? (
-                  t(message)
+                    {mode === 'daily' && <NextPuzzle />}
+                    {copyFallback && (
+                      <textarea
+                        className="share-fallback"
+                        aria-label={t('コピー用の結果')}
+                        readOnly
+                        value={copyFallback}
+                        onFocus={(e) => e.currentTarget.select()}
+                      />
+                    )}
+                  </section>
                 ) : (
                   <>
-                    <span aria-hidden="true">
-                      {revealing >= 0 ? t('答え合わせ…') : null}
-                    </span>
-                    <span className="sr-only">{t(message)}</span>
+                    <div className="input-heading">
+                      <label htmlFor="guess">
+                        {t(`ひらがな${length}文字`)}
+                      </label>
+                      <span>{t('小さい「ゃ・ゅ・ょ・っ」も1文字')}</span>
+                    </div>
+                    <form
+                      className="guess-form"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        submit();
+                      }}
+                    >
+                      <input
+                        id="guess"
+                        {...kana.inputProps}
+                        disabled={!game || finished}
+                        readOnly={revealing >= 0}
+                        placeholder={t('ここに入力')}
+                        aria-describedby="game-message"
+                        aria-invalid={error || undefined}
+                        onFocus={() =>
+                          setTyping(
+                            window.matchMedia('(pointer: coarse)').matches,
+                          )
+                        }
+                        onBlur={() => {
+                          setTyping(false);
+                          if (game) kana.commit();
+                        }}
+                      />
+                      <button
+                        type="submit"
+                        className="primary-button submit-button"
+                        // Tapping 決定 must not close the phone keyboard mid-typing.
+                        onPointerDown={(e) => e.preventDefault()}
+                        disabled={
+                          !game ||
+                          !game.draft.trim() ||
+                          finished ||
+                          revealing >= 0
+                        }
+                        aria-label={t('回答する')}
+                      >
+                        {t('決定')}
+                        <ArrowRight size={18} />
+                      </button>
+                    </form>
+                    <button
+                      className="text-button give-up"
+                      // Keep the field focused: closing the phone keyboard first
+                      // would move this button out from under the tap.
+                      onPointerDown={(e) => e.preventDefault()}
+                      disabled={!game || revealing >= 0}
+                      onClick={() => setGivingUp(true)}
+                    >
+                      {t('答えを見る')}
+                    </button>
                   </>
                 )}
-              </output>
-              <KanaKeyboard
-                keys={keys}
-                disabled={!game || finished || revealing >= 0}
-                finished={finished}
-                onInsert={insert}
-                onModify={kana.modify}
-                onErase={() => game && kana.erase()}
-              />
-              {storageWarning && (
-                <p className="storage-warning">
-                  {t(
-                    'このブラウザでは途中の記録を保存できません。ページを閉じるとリセットされます。',
+                <output
+                  id="game-message"
+                  aria-live="polite"
+                  aria-atomic="true"
+                  className={'status ' + (error ? 'error' : '')}
+                >
+                  {error || (finished && !quiet) ? (
+                    t(message)
+                  ) : (
+                    <>
+                      <span aria-hidden="true">
+                        {revealing >= 0 ? t('答え合わせ…') : null}
+                      </span>
+                      <span className="sr-only">{t(message)}</span>
+                    </>
                   )}
-                </p>
-              )}
-            </div>
-          </section>
+                </output>
+                <KanaKeyboard
+                  keys={keys}
+                  disabled={!game || finished || revealing >= 0}
+                  finished={finished}
+                  onInsert={insert}
+                  onModify={kana.modify}
+                  onErase={() => game && kana.erase()}
+                />
+                {storageWarning && (
+                  <p className="storage-warning">
+                    {t(
+                      'このブラウザでは途中の記録を保存できません。ページを閉じるとリセットされます。',
+                    )}
+                  </p>
+                )}
+              </div>
+            </section>
+          )}
         </TabsContent>
       </Tabs>
       <footer>
@@ -909,6 +1023,17 @@ function GameView() {
             <p>
               {t(
                 '設定でオンにすると、それまでのヒントと矛盾しない、答えになりうる言葉だけ回答できます。✓のかなは同じ位置、●のかなは別の位置で使い、−のかなは使えません。ヒント表示もオンなら、枠線のヒントにも従います。モードは各問題の最初の回答で決まります。',
+              )}
+            </p>
+            <h3>{t('あそび')}</h3>
+            <p>
+              {t(
+                'いじわる：回答するたびに、それまでの結果と矛盾しない別の言葉へ答えが逃げていく4文字のパズル。回数制限はなし。何手で追い詰められるか挑戦します。',
+              )}
+            </p>
+            <p>
+              {t(
+                'しりとり：前の言葉の最後のかなから始まる、3〜6文字の言葉で続けます。小さいかなは大きく（しゃ→や）、最後の「ー」は一つ前のかなで続けます。「ん」で終わると負け。同じ言葉は使えません。時間制限はありません。',
               )}
             </p>
             <h3>{t('かなの数え方')}</h3>

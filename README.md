@@ -4,6 +4,8 @@
 
 A Japanese word puzzle with eight guesses. One four-kana word a day, plus unlimited practice with three, four, five or six kana.
 
+The あそび tab adds two modes: いじわる, an Absurdle-style puzzle whose answer dodges every guess until you corner it, and しりとり against the computer, with no time limit.
+
 - Japanese and English interface.
 - Optional near hints: outlines kana that differ only by 濁点, 半濁点 or size (き/ぎ, つ/っ/づ), in the same spot or elsewhere. Each round keeps the mode it had at its first guess.
 - Light, dark and system themes.
