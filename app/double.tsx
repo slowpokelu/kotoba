@@ -2,7 +2,7 @@
 /* oxlint-disable react/react-compiler -- No React compiler is enabled; mount effects restore browser state. */
 /* oxlint-disable typescript/no-misused-spread -- NFC kana are deliberately counted as individual code points. */
 import { useEffect, useRef, useState } from 'react';
-import { ArrowRight, Copy, RotateCcw, Share2 } from 'lucide-react';
+import { ArrowRight, ExternalLink, RotateCcw } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogContent,
@@ -19,8 +19,8 @@ import {
   validateGuess,
 } from '@/lib/game.mjs';
 import {
-  DOUBLE_KEY,
-  DOUBLE_LIMIT,
+  boardsKey,
+  boardsLimit,
   doubleOutcome,
   doubleShare,
   newDouble,
@@ -36,9 +36,9 @@ import {
   answersFor,
 } from '@/lib/word-pools.mjs';
 import type { Status } from '@/lib/types';
-import { KanaKeyboard, useKanaField } from './kana-input';
+import { KanaKeyboard, boardNames, useKanaField } from './kana-input';
 import { useLanguage } from './language';
-import { englishShare, sendResult, useCanShare } from './share';
+import { ShareButton, englishShare, jisho, useFinePointer } from './share';
 
 type Round = {
   version: number;
@@ -52,18 +52,25 @@ type Round = {
 const pool = answersFor(4).map((a) => a.reading);
 const spelling = new Map(allAnswers.map((a) => [a.reading, a.spelling]));
 const aliases = aliasesFor(4);
+const answersText = (answers: string[]) =>
+  '答えは「' +
+  answers.join(answers.length > 2 ? '」「' : '」と「') +
+  '」でした。';
 
+// ダブル and トリプル: one guess goes on every board.
 export function Double({
+  boards,
   picker,
   onTyping,
   hintSetting,
 }: {
+  boards: 2 | 3;
   picker: React.ReactNode;
   onTyping: (typing: boolean) => void;
   hintSetting: boolean;
 }) {
   const { t, language } = useLanguage();
-  const canShare = useCanShare();
+  const finePointer = useFinePointer();
   const [round, setRound] = useState<Round | null>(null);
   const [message, setMessage] = useState('');
   const [error, setError] = useState(false);
@@ -71,27 +78,35 @@ export function Double({
   const [givingUp, setGivingUp] = useState(false);
   const continueButton = useRef<HTMLButtonElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const limit = boardsLimit(boards);
+  const key = boardsKey(boards);
+  const names = boardNames(boards);
 
   useEffect(() => {
     let saved: Round | null = null;
     try {
-      saved = restoreDouble(localStorage.getItem(DOUBLE_KEY), valid, answerSet);
+      saved = restoreDouble(
+        localStorage.getItem(key),
+        valid,
+        answerSet,
+        boards,
+      );
     } catch {
       /* Start fresh when storage is unavailable. */
     }
-    setRound(saved ?? newDouble(pool));
+    setRound(saved ?? newDouble(pool, Math.random, boards));
     return () => {
       if (timer.current) clearTimeout(timer.current);
     };
-  }, []);
+  }, [key, boards]);
   useEffect(() => {
     if (!round) return;
     try {
-      localStorage.setItem(DOUBLE_KEY, JSON.stringify(round));
+      localStorage.setItem(key, JSON.stringify(round));
     } catch {
       /* Keep playing without saving. */
     }
-  }, [round]);
+  }, [round, key]);
 
   const result = round ? doubleOutcome(round) : 'playing';
   const playing = result === 'playing';
@@ -138,47 +153,42 @@ export function Double({
       const state = doubleOutcome(next);
       if (state === 'won')
         say('正解！ ' + next.guesses.length + '回で見つけました。');
-      else if (state === 'lost')
-        say('答えは「' + next.answers.join('」と「') + '」でした。');
+      else if (state === 'lost') say(answersText(next.answers));
     }, 650);
   }
   function restart() {
     if (busy) return;
     say('');
-    setRound(newDouble(pool));
-  }
-  async function share() {
-    if (!round) return;
-    const text =
-      language === 'en' ? englishShare(doubleShare(round)) : doubleShare(round);
-    const sent = await sendResult(text, canShare);
-    if (sent === 'copied') say('結果をコピーしました。');
-    else if (sent === 'failed') say('コピーできませんでした。');
+    setRound(newDouble(pool, Math.random, boards));
   }
 
   const turn = round ? round.guesses.length + (playing ? 1 : 0) : 1;
+  const label = boards === 3 ? 'トリプル' : 'ダブル';
   return (
-    <section className="play-area double" aria-label={t('ダブル')}>
+    <section
+      className={'play-area double' + (boards === 3 ? ' triple' : '')}
+      aria-label={t(label)}
+    >
       <div className="board-column">
         <div className="game-heading">
           {picker}
           <span>
-            {Math.min(turn, DOUBLE_LIMIT)} / {DOUBLE_LIMIT}
+            {Math.min(turn, limit)} / {limit}
           </span>
         </div>
         <div className="double-boards">
-          {[0, 1].map((board) => {
+          {names.map((name, board) => {
             const solved = round ? solvedAt(round, board) : -1;
             return (
               <div
                 key={board}
                 className="board"
                 data-length={4}
-                style={{ '--rows': DOUBLE_LIMIT } as React.CSSProperties}
-                aria-label={board ? t('右の解答欄') : t('左の解答欄')}
+                style={{ '--rows': limit } as React.CSSProperties}
+                aria-label={t(name + 'の解答欄')}
                 aria-busy={busy}
               >
-                {Array.from({ length: DOUBLE_LIMIT }, (_, r) => {
+                {Array.from({ length: limit }, (_, r) => {
                   const guess = round?.guesses[r];
                   // After its solve, a board's later rows stay empty.
                   const spent = solved >= 0 && r > solved;
@@ -193,51 +203,70 @@ export function Double({
                     r === round.guesses.length;
                   const letters =
                     guess && !spent ? [...guess] : active ? tiles : [];
-                  return (
-                    <div
+                  const cells = Array.from({ length: 4 }, (_, c) => {
+                    const status = statuses[c] as Status | undefined;
+                    return (
+                      <span
+                        key={c}
+                        style={
+                          { '--delay': c * 85 + 'ms' } as React.CSSProperties
+                        }
+                        className={
+                          'tile ' +
+                          (status || '') +
+                          (active ? ' current' : '') +
+                          (active && c === tiles.length ? ' caret' : '') +
+                          (letters[c] ? ' filled' : '')
+                        }
+                        aria-label={
+                          letters[c]
+                            ? t(
+                                c +
+                                  1 +
+                                  '文字目 ' +
+                                  letters[c] +
+                                  (status ? '、' + labels[status] : ''),
+                              )
+                            : t('未入力')
+                        }
+                      >
+                        <span>{letters[c] || ''}</span>
+                        {status && (
+                          <small aria-hidden="true">{marks[status]}</small>
+                        )}
+                      </span>
+                    );
+                  });
+                  const className =
+                    'guess-row' +
+                    (revealing === r ? ' reveal' : '') +
+                    (spent ? ' spent' : '');
+                  // Guesses link to the dictionary as on the main board.
+                  return guess &&
+                    !spent &&
+                    (!playing || finePointer) &&
+                    revealing !== r ? (
+                    <a
                       key={r}
-                      className={
-                        'guess-row' +
-                        (revealing === r ? ' reveal' : '') +
-                        (spent ? ' spent' : '')
-                      }
+                      className={className}
+                      href={jisho(
+                        round?.answers.includes(guess)
+                          ? (spelling.get(guess) ?? guess)
+                          : guess,
+                      )}
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label={t(
+                        '第' + (r + 1) + '回答：' + guess + '、辞書で見る',
+                      )}
+                      title={t('辞書で見る')}
+                      onMouseDown={(e) => e.preventDefault()}
                     >
-                      {Array.from({ length: 4 }, (_, c) => {
-                        const status = statuses[c] as Status | undefined;
-                        return (
-                          <span
-                            key={c}
-                            style={
-                              {
-                                '--delay': c * 85 + 'ms',
-                              } as React.CSSProperties
-                            }
-                            className={
-                              'tile ' +
-                              (status || '') +
-                              (active ? ' current' : '') +
-                              (active && c === tiles.length ? ' caret' : '') +
-                              (letters[c] ? ' filled' : '')
-                            }
-                            aria-label={
-                              letters[c]
-                                ? t(
-                                    c +
-                                      1 +
-                                      '文字目 ' +
-                                      letters[c] +
-                                      (status ? '、' + labels[status] : ''),
-                                  )
-                                : t('未入力')
-                            }
-                          >
-                            <span>{letters[c] || ''}</span>
-                            {status && (
-                              <small aria-hidden="true">{marks[status]}</small>
-                            )}
-                          </span>
-                        );
-                      })}
+                      {cells}
+                    </a>
+                  ) : (
+                    <div key={r} className={className}>
+                      {cells}
                     </div>
                   );
                 })}
@@ -262,20 +291,37 @@ export function Double({
             </h2>
             <p className="answer-reading">{round.answers.join('・')}</p>
             {result === 'won' && (
-              <p>
-                {t(round.guesses.length + ' / ' + DOUBLE_LIMIT + ' 回で正解。')}
-              </p>
+              <p>{t(round.guesses.length + ' / ' + limit + ' 回で正解。')}</p>
             )}
             <div className="result-actions">
               <button className="primary-button" onClick={restart}>
                 <RotateCcw size={17} />
                 {t('もう一問')}
               </button>
-              <button className="secondary-button" onClick={share}>
-                {canShare ? <Share2 size={17} /> : <Copy size={17} />}
-                {canShare ? t('結果を共有') : t('結果をコピー')}
-              </button>
+              <ShareButton
+                text={
+                  language === 'en'
+                    ? englishShare(doubleShare(round))
+                    : doubleShare(round)
+                }
+              />
             </div>
+            <p className="dictionary-links">
+              {round.answers.map((a) => (
+                <a
+                  key={a}
+                  className="dictionary-link"
+                  href={jisho(spelling.get(a) ?? a)}
+                  target="_blank"
+                  rel="noreferrer"
+                  lang="ja"
+                  aria-label={t((spelling.get(a) ?? a) + '、辞書で見る')}
+                >
+                  {spelling.get(a) ?? a}
+                  <ExternalLink size={14} />
+                </a>
+              ))}
+            </p>
           </section>
         ) : (
           <>
@@ -333,10 +379,7 @@ export function Double({
         </output>
         <KanaKeyboard
           split={
-            (round ? splitKeys(round) : {}) as Record<
-              string,
-              [Status | null, Status | null]
-            >
+            (round ? splitKeys(round) : {}) as Record<string, (Status | null)[]>
           }
           disabled={!playing || busy}
           finished={!playing}
@@ -365,7 +408,7 @@ export function Double({
                 setGivingUp(false);
                 if (round) {
                   setRound({ ...round, gaveUp: true, draft: '' });
-                  say('答えは「' + round.answers.join('」と「') + '」でした。');
+                  say(answersText(round.answers));
                 }
               }}
             >

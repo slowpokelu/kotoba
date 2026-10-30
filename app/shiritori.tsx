@@ -31,6 +31,7 @@ import {
 } from '@/lib/word-pools.mjs';
 import { KanaKeyboard, useKanaField } from './kana-input';
 import { useLanguage } from './language';
+import { jisho, useFinePointer } from './share';
 
 type Link = { word: string; by: 'cpu' | 'you' };
 type Round = {
@@ -66,6 +67,7 @@ export function Shiritori({
   onTyping: (typing: boolean) => void;
 }) {
   const { t } = useLanguage();
+  const finePointer = useFinePointer();
   const [round, setRound] = useState<Round | null>(null);
   const [best, setBest] = useState(0);
   const [message, setMessage] = useState('');
@@ -188,18 +190,39 @@ export function Shiritori({
           </span>
         </div>
         <ol className="chain" ref={list} aria-label={t('しりとりの言葉')}>
-          {round?.chain.map((link, i) => (
-            <li key={i} className={'chain-word ' + link.by}>
-              <span className="sr-only">
-                {link.by === 'you' ? t('あなた：') : t('相手：')}
-              </span>
-              <b lang="ja">{spelling.get(link.word) ?? link.word}</b>
-              {spelling.has(link.word) &&
-                spelling.get(link.word) !== link.word && (
-                  <small lang="ja">{link.word}</small>
+          {round?.chain.map((link, i) => {
+            const word = (
+              <>
+                <b lang="ja">{spelling.get(link.word) ?? link.word}</b>
+                {spelling.has(link.word) &&
+                  spelling.get(link.word) !== link.word && (
+                    <small lang="ja">{link.word}</small>
+                  )}
+              </>
+            );
+            return (
+              <li key={i} className={'chain-word ' + link.by}>
+                <span className="sr-only">
+                  {link.by === 'you' ? t('あなた：') : t('相手：')}
+                </span>
+                {/* As on the boards: a mouse looks words up mid-game, touch
+                    once the chain is over. */}
+                {round.end || finePointer ? (
+                  <a
+                    href={jisho(spelling.get(link.word) ?? link.word)}
+                    target="_blank"
+                    rel="noreferrer"
+                    title={t('辞書で見る')}
+                    onMouseDown={(e) => e.preventDefault()}
+                  >
+                    {word}
+                  </a>
+                ) : (
+                  word
                 )}
-            </li>
-          ))}
+              </li>
+            );
+          })}
           {playing && round.chain.length === 1 && (
             <li className="chain-hint">
               {t(

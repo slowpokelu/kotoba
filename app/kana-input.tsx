@@ -111,6 +111,10 @@ export function useKanaField(value: string, onValue: (next: string) => void) {
   return { field, inputProps, composingNow, commit, insert, erase, modify };
 }
 
+// The boards of ダブル and トリプル, left to right.
+export const boardNames = (boards: number) =>
+  boards === 3 ? ['左', '真ん中', '右'] : ['左', '右'];
+
 // The on-screen kana keyboard. Keys never take focus, so the phone keyboard
 // stays closed while tapping them.
 export function KanaKeyboard({
@@ -123,8 +127,8 @@ export function KanaKeyboard({
   onErase,
 }: {
   keys?: Record<string, Status>;
-  // ダブル: each key shows the left and right board as two halves.
-  split?: Record<string, [Status | null, Status | null]>;
+  // ダブル and トリプル: each key shows every board, left to right.
+  split?: Record<string, (Status | null)[]>;
   disabled: boolean;
   finished?: boolean;
   onInsert: (kana: string) => void;
@@ -134,6 +138,7 @@ export function KanaKeyboard({
   const { t } = useLanguage();
   const [extra, setExtra] = useState(false);
   const keep = (e: React.PointerEvent) => e.preventDefault();
+  const boards = split ? (Object.values(split)[0]?.length ?? 0) : 0;
   return (
     <div className={'keyboard-section ' + (finished ? 'finished' : '')}>
       <div className="keyboard-heading">
@@ -163,9 +168,24 @@ export function KanaKeyboard({
               <button
                 type="button"
                 key={r + '-' + c}
-                className={'kana-key ' + (split ? 'split' : keys[k] || '')}
-                data-left={split?.[k]?.[0] ?? undefined}
-                data-right={split?.[k]?.[1] ?? undefined}
+                className={
+                  'kana-key ' +
+                  (split
+                    ? 'split' +
+                      (boards === 3 ? ' thirds' : '') +
+                      (split[k]?.every(Boolean) ? ' tried' : '')
+                    : keys[k] || '')
+                }
+                style={
+                  split?.[k]
+                    ? (Object.fromEntries(
+                        split[k].map((s, i) => [
+                          '--k' + i,
+                          'var(--k-' + (s ?? 'none') + ')',
+                        ]),
+                      ) as React.CSSProperties)
+                    : undefined
+                }
                 disabled={disabled}
                 aria-label={
                   k +
@@ -174,7 +194,7 @@ export function KanaKeyboard({
                         .map(
                           (s, i) =>
                             '、' +
-                            t(i ? '右' : '左') +
+                            t(boardNames(boards)[i]) +
                             '：' +
                             (s ? t(labels[s]) : t('未判定')),
                         )

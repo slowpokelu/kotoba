@@ -420,23 +420,30 @@ Object.defineProperty(navigator, 'clipboard', {
   },
   configurable: true,
 });
-await click('結果をコピー');
-absent('[role="dialog"]', 'copy does not open a panel');
-assert.ok(document.querySelector('.share-fallback'), 'copy fallback appears');
-const fallbackResult = document.querySelector('.share-fallback').value;
-assert.ok(fallbackResult.endsWith('https://slowpokelu.github.io/kotoba/'));
+await click('結果を共有');
+assert.ok(document.querySelector('.share-dialog'), 'share opens a preview');
+const sharedResult = document.querySelector('.share-preview').textContent;
+assert.ok(sharedResult.endsWith('https://slowpokelu.github.io/kotoba/'));
 assert.ok(
-  !fallbackResult.includes(saved().answer),
-  'copied result has no answer',
+  !sharedResult.includes(saved().answer),
+  'shared result has no answer',
+);
+absent('.share-dialog .primary-button[aria-label="共有"]');
+await click('コピー');
+assert.ok(
+  text().includes('コピーできませんでした'),
+  'a failed copy says to select the preview',
 );
 let copiedResult;
 navigator.clipboard.writeText = async (value) => {
   copiedResult = value;
 };
-await click('結果をコピー');
-assert.equal(copiedResult, fallbackResult, 'one click copies the result');
-absent('.share-fallback');
-assert.ok(text().includes('結果をコピーしました'));
+await click('コピー');
+assert.equal(copiedResult, sharedResult, 'copy takes the previewed result');
+assert.ok(button('コピーしました'), 'the copy button confirms');
+await click('閉じる');
+await waitFor(() => !document.querySelector('.share-dialog'));
+absent('.share-dialog', 'the preview closes');
 navigator.clipboard.writeText = async () => {
   throw new Error('denied');
 };
@@ -670,18 +677,20 @@ for (const n of [3, 5, 6]) {
     document.querySelector('.result-card h2').textContent,
     'kanji reveal exists',
   );
-  await click('Copy result');
+  await click('Share result');
   assert.ok(
     document
-      .querySelector('.share-fallback')
-      .value.includes(`Practice · ${n} kana`),
+      .querySelector('.share-preview')
+      .textContent.includes(`Practice · ${n} kana`),
   );
   assert.ok(
     document
-      .querySelector('.share-fallback')
-      .value.endsWith('https://slowpokelu.github.io/kotoba/'),
+      .querySelector('.share-preview')
+      .textContent.endsWith('https://slowpokelu.github.io/kotoba/'),
     'English practice result includes the public game link',
   );
+  await click('Close');
+  await waitFor(() => !document.querySelector('.share-dialog'));
   await click('Play again');
   assert.equal(document.querySelectorAll('.board .tile').length, n * 8);
   assert.notEqual(JSON.parse(localStorage.getItem(key)).answer, round.answer);
@@ -982,8 +991,18 @@ for (const board of document.querySelectorAll('.double-boards .board'))
     'the guess shows on both boards',
   );
 assert.ok(
-  document.querySelector('.kana-key.split[data-left][data-right]'),
+  document.querySelector('.kana-key.split.tried'),
   'tried keys show both boards',
+);
+assert.equal(
+  button('か').style.getPropertyValue('--k1').startsWith('var(--k-'),
+  true,
+  'each half takes its board state',
+);
+assert.equal(
+  document.querySelectorAll('.double-boards a.guess-row').length,
+  0,
+  'touch keeps rows unlinked mid-game',
 );
 await type('しんぶん');
 await submit();
@@ -997,6 +1016,44 @@ assert.equal(
   16,
   'ダブル survives a reload',
 );
+await click('Give up');
+await click('Give up & reveal');
+await waitFor(() => document.querySelector('.double .result-card'));
+assert.equal(
+  document.querySelectorAll('.double-boards a.guess-row').length,
+  4,
+  'finished rows link to the dictionary on both boards',
+);
+assert.equal(
+  document.querySelectorAll('.double .dictionary-links a').length,
+  2,
+  'each answer links to the dictionary',
+);
+await click('Share result');
+assert.match(
+  document.querySelector('.share-preview').textContent,
+  /Double {2}X\/9/,
+);
+await click('Close');
+await waitFor(() => !document.querySelector('.share-dialog'));
+// トリプル: three boards with their own save; keys in thirds.
+await choosePlay('triple');
+assert.equal(document.querySelectorAll('.double-boards .board').length, 3);
+assert.equal(
+  document
+    .querySelectorAll('.double-boards .board')[0]
+    .querySelectorAll('.guess-row').length,
+  10,
+  'トリプル has ten rows',
+);
+await type('かいしゃ');
+await submit();
+await settle();
+const tripleState = JSON.parse(localStorage.getItem('kotoba:v1:triple'));
+assert.equal(tripleState.answers.length, 3);
+assert.deepEqual(tripleState.guesses, ['かいしゃ']);
+assert.ok(document.querySelector('.kana-key.split.thirds.tried'));
+assert.ok(doubleState().gaveUp, 'ダブル keeps its own finished round');
 // かなビー: today's seven kana; common words only, the centre always used.
 await choosePlay('bee');
 const beeLib = await import('../lib/bee.mjs');

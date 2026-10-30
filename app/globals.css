@@ -685,14 +685,39 @@ a {
 .finished .keyboard-tools {
   display: none;
 }
-.share-fallback {
-  width: 100%;
-  height: 170px;
-  margin-top: 12px;
-  border: 1px solid #ccd5e3;
-  border-radius: 6px;
-  padding: 10px;
-  font-size: 16px;
+.dictionary-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 14px;
+}
+.share-dialog[data-slot] {
+  max-width: min(420px, calc(100% - 28px));
+}
+.share-preview {
+  margin: 0;
+  max-height: 46dvh;
+  overflow: auto;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: white;
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+.share-note {
+  display: block;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #a02d24;
+}
+.share-note:empty {
+  display: none;
 }
 .storage-warning {
   font-size: 13px;
@@ -1191,7 +1216,7 @@ a {
   color: #b3c7ff;
 }
 [data-theme='dark'] .guess-form input,
-[data-theme='dark'] .share-fallback {
+[data-theme='dark'] .share-preview {
   background: #192539;
   border-color: #526786;
   color: #e3eaf7;
@@ -1699,6 +1724,15 @@ a {
   font-size: 11px;
   opacity: 0.75;
 }
+.chain-word a,
+.bee-found a {
+  color: inherit;
+  text-decoration: none;
+}
+.chain-word a:hover,
+.bee-found a:hover {
+  text-decoration: underline;
+}
 .chain-word.thinking {
   opacity: 0.6;
 }
@@ -1832,7 +1866,7 @@ a {
     padding: 1px 30px 1px 12px;
   }
 }
-/* ダブル: two boards side by side, without row numbers. */
+/* ダブル and トリプル: boards side by side, without row numbers. */
 .double-boards {
   display: flex;
   justify-content: center;
@@ -1858,11 +1892,39 @@ a {
     font-size: 22px;
   }
 }
+@media (min-width: 761px) {
+  .play-area.triple {
+    grid-template-columns: minmax(280px, 480px) minmax(0, 1fr);
+    gap: 48px;
+  }
+  .triple .double-boards {
+    gap: 14px;
+  }
+  .triple .double-boards .tile,
+  .triple .double-boards .board .tile {
+    width: 34px;
+    height: 34px;
+    font-size: 19px;
+  }
+}
 @media (max-width: 760px) {
   .double-boards {
     flex: 1;
     min-height: 0;
     gap: 10px;
+  }
+  .triple .double-boards {
+    gap: 7px;
+  }
+  .triple .double-boards .board {
+    --min-tile: 16px;
+  }
+  .triple .double-boards .board .guess-row {
+    gap: 3px;
+  }
+  /* Too small for the corner marks; the colours carry the result. */
+  .triple .double-boards .tile small {
+    display: none;
   }
   .double-boards .board {
     flex: 1 1 0;
@@ -1870,77 +1932,42 @@ a {
     min-width: 0;
   }
 }
-/* Split keys: the left half is the left board, the right half the right. */
+/* Split keys: one segment per board, left to right. */
 .kana-key.split {
-  --left: #fff;
-  --right: #fff;
-  background: linear-gradient(90deg, var(--left) 50%, var(--right) 50%);
+  --k-none: #fff;
+  --k-correct: #2b50bf;
+  --k-present: #efbc4d;
+  --k-near-correct: #c9d4f6;
+  --k-near-present: #f6e2b0;
+  --k-absent: #dbe1eb;
+  --k0: var(--k-none);
+  --k1: var(--k-none);
+  --k2: var(--k-none);
+  background: linear-gradient(90deg, var(--k0) 50%, var(--k1) 50%);
 }
-.kana-key.split[data-left='correct'] {
-  --left: #2b50bf;
+.kana-key.split.thirds {
+  background: linear-gradient(
+    90deg,
+    var(--k0) 33.4%,
+    var(--k1) 33.4% 66.6%,
+    var(--k2) 66.6%
+  );
 }
-.kana-key.split[data-right='correct'] {
-  --right: #2b50bf;
-}
-.kana-key.split[data-left='present'] {
-  --left: #efbc4d;
-}
-.kana-key.split[data-right='present'] {
-  --right: #efbc4d;
-}
-.kana-key.split[data-left='near-correct'] {
-  --left: #c9d4f6;
-}
-.kana-key.split[data-right='near-correct'] {
-  --right: #c9d4f6;
-}
-.kana-key.split[data-left='near-present'] {
-  --left: #f6e2b0;
-}
-.kana-key.split[data-right='near-present'] {
-  --right: #f6e2b0;
-}
-.kana-key.split[data-left='absent'] {
-  --left: #dbe1eb;
-}
-.kana-key.split[data-right='absent'] {
-  --right: #dbe1eb;
-}
-.kana-key.split[data-left][data-right] {
+.kana-key.split.tried {
   text-shadow:
     0 0 3px #fff,
     0 0 1px #fff;
 }
-[data-theme='dark'] .kana-key.split:not([data-left]) {
-  --left: #223149;
-}
-[data-theme='dark'] .kana-key.split:not([data-right]) {
-  --right: #223149;
-}
 [data-theme='dark'] .kana-key.split {
+  --k-none: #223149;
+  --k-absent: #303b4c;
+  --k-near-correct: #1f2f5c;
+  --k-near-present: #3b3016;
   border-color: #43536e;
   color: #e3eaf7;
   box-shadow: 0 2px 0 #080e18;
 }
-[data-theme='dark'] .kana-key.split[data-left='absent'] {
-  --left: #303b4c;
-}
-[data-theme='dark'] .kana-key.split[data-right='absent'] {
-  --right: #303b4c;
-}
-[data-theme='dark'] .kana-key.split[data-left='near-correct'] {
-  --left: #1f2f5c;
-}
-[data-theme='dark'] .kana-key.split[data-right='near-correct'] {
-  --right: #1f2f5c;
-}
-[data-theme='dark'] .kana-key.split[data-left='near-present'] {
-  --left: #3b3016;
-}
-[data-theme='dark'] .kana-key.split[data-right='near-present'] {
-  --right: #3b3016;
-}
-[data-theme='dark'] .kana-key.split[data-left][data-right] {
+[data-theme='dark'] .kana-key.split.tried {
   text-shadow:
     0 0 3px #000,
     0 0 1px #000;

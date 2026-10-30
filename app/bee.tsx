@@ -24,6 +24,7 @@ import {
 import { aliasesFor, commonWords } from '@/lib/word-pools.mjs';
 import { useKanaField } from './kana-input';
 import { useLanguage } from './language';
+import { jisho, useFinePointer } from './share';
 
 type Round = {
   version: number;
@@ -59,6 +60,7 @@ export function Bee({
   day: string;
 }) {
   const { t } = useLanguage();
+  const finePointer = useFinePointer();
   const puzzle = useMemo(() => (day ? beePuzzle(day, words) : null), [day]);
   const [round, setRound] = useState<Round | null>(null);
   const [outer, setOuter] = useState<string[]>([]);
@@ -161,7 +163,19 @@ export function Bee({
               lang="ja"
               className={round?.found.includes(w) ? '' : 'missed'}
             >
-              {spellings[w] ?? w}
+              {round?.revealed || finePointer ? (
+                <a
+                  href={jisho(spellings[w] ?? w)}
+                  target="_blank"
+                  rel="noreferrer"
+                  title={t('辞書で見る')}
+                  onMouseDown={(e) => e.preventDefault()}
+                >
+                  {spellings[w] ?? w}
+                </a>
+              ) : (
+                (spellings[w] ?? w)
+              )}
             </li>
           ))}
           {!found.length && (

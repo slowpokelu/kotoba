@@ -6,12 +6,10 @@ import { useEffect, useRef, useState } from 'react';
 import {
   HelpCircle,
   ArrowRight,
-  Copy,
   RotateCcw,
   X,
   ExternalLink,
   ChevronDown,
-  Share2,
 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -28,7 +26,7 @@ import { KanaKeyboard, useKanaField } from './kana-input';
 import { Shiritori } from './shiritori';
 import { Double } from './double';
 import { Bee } from './bee';
-import { englishShare, sendResult, useCanShare } from './share';
+import { ShareButton, englishShare, jisho, useFinePointer } from './share';
 import { PlayerTools } from './player-tools';
 import { LanguageProvider, LanguageSwitcher, useLanguage } from './language';
 import {
@@ -76,11 +74,18 @@ import { gameKey } from '@/lib/profile.mjs';
 import type { Game, Status } from '@/lib/types';
 
 type Mode = 'daily' | 'practice' | 'play';
-type PlayMode = 'absurd' | 'shiritori' | 'double' | 'bee';
-const PLAY_MODES: PlayMode[] = ['absurd', 'double', 'bee', 'shiritori'];
+type PlayMode = 'absurd' | 'shiritori' | 'double' | 'triple' | 'bee';
+const PLAY_MODES: PlayMode[] = [
+  'absurd',
+  'double',
+  'triple',
+  'bee',
+  'shiritori',
+];
 const PLAY_LABELS = {
   absurd: 'いじわる',
   double: 'ダブル',
+  triple: 'トリプル',
   bee: 'かなビー',
   shiritori: 'しりとり',
 };
@@ -149,13 +154,11 @@ function GameView() {
   const [help, setHelp] = useState(false);
   const [givingUp, setGivingUp] = useState(false);
   const [revealing, setRevealing] = useState(-1);
-  const [copyFallback, setCopyFallback] = useState('');
   const [storageWarning, setStorageWarning] = useState(false);
   // Finish announcements are for screen readers; the result card shows them.
   const [quiet, setQuiet] = useState(false);
   // Bumped on every refused guess to replay the row's shake.
   const [shake, setShake] = useState(0);
-  const canShare = useCanShare();
   // The winning row hops once, right after its reveal.
   const [celebrate, setCelebrate] = useState(false);
   const againButton = useRef<HTMLButtonElement>(null);
@@ -169,16 +172,7 @@ function GameView() {
   }, [game]);
   const kana = useKanaField(game?.draft || '', edit);
   const field = kana.field;
-  // A mouse can look up guesses mid-game; touch waits for the result so a
-  // stray tap near the keyboard never leaves the puzzle.
-  const [finePointer, setFinePointer] = useState(false);
-  useEffect(() => {
-    const media = window.matchMedia('(hover: hover) and (pointer: fine)');
-    const update = () => setFinePointer(media.matches);
-    update();
-    media.addEventListener('change', update);
-    return () => media.removeEventListener('change', update);
-  }, []);
+  const finePointer = useFinePointer();
   // iOS Safari lays its keyboard over the page instead of resizing it, then
   // scrolls the page to reveal the field. While a phone types in the field,
   // size the layout to the area left above the keyboard instead.
@@ -290,7 +284,8 @@ function GameView() {
   // いじわる adds rows as needed beyond the usual eight, and scrolls to them.
   const rows = absurd ? Math.max(LIMIT, turn) : limit;
   const shiritori = mode === 'play' && playMode === 'shiritori';
-  const double = mode === 'play' && playMode === 'double';
+  const double =
+    mode === 'play' && (playMode === 'double' || playMode === 'triple');
   const bee = mode === 'play' && playMode === 'bee';
   const aliases = aliasesFor(length);
   const finished = result !== 'playing';
@@ -366,7 +361,6 @@ function GameView() {
     setMode(next);
     setGame(gameFor(next));
     say('');
-    setCopyFallback('');
     setRevealing(-1);
   }
   function choosePlayMode(value: unknown) {
@@ -388,7 +382,6 @@ function GameView() {
     );
     if (!absurd) setMode('practice');
     say('');
-    setCopyFallback('');
     setRevealing(-1);
   }
   function chooseLength(value: unknown) {
@@ -402,7 +395,6 @@ function GameView() {
     setPracticeLength(next);
     setGame(loadGame(newGame(pickPractice(next), practiceId(next))));
     setGivingUp(false);
-    setCopyFallback('');
     say('');
     savePreference(PRACTICE_LENGTH_KEY, String(next));
   }
@@ -510,22 +502,6 @@ function GameView() {
     }, 650);
   }
 
-  async function copy() {
-    if (!game) return;
-    const text =
-      language === 'en'
-        ? englishShare(shareText(game, day))
-        : shareText(game, day);
-    const sent = await sendResult(text, canShare);
-    if (sent === 'copied') {
-      setCopyFallback('');
-      say('結果をコピーしました。');
-    } else if (sent === 'failed') {
-      setCopyFallback(text);
-      say('下の結果を選択してコピーできます。');
-    }
-  }
-
   // A compact dropdown, so the heading row fits any number of modes.
   const playPicker = (
     <label className="play-picker">
@@ -615,6 +591,9 @@ function GameView() {
             <Bee picker={playPicker} onTyping={setTyping} day={day} />
           ) : double ? (
             <Double
+              // A fresh component per mode, so ダブル and トリプル keep apart.
+              key={playMode}
+              boards={playMode === 'triple' ? 3 : 2}
               picker={playPicker}
               onTyping={setTyping}
               hintSetting={hintSetting}
@@ -690,8 +669,7 @@ function GameView() {
                     const letters = guess ? [...guess] : active ? tiles : [];
                     const lookup =
                       guess && (finished || finePointer) && revealing !== r
-                        ? 'https://jisho.org/search/' +
-                          encodeURIComponent(
+                        ? jisho(
                             guess === game?.answer && answer
                               ? answer.spelling
                               : guess,
@@ -845,17 +823,19 @@ function GameView() {
                         <RotateCcw size={17} />
                         {t('もう一問')}
                       </button>
-                      <button className="secondary-button" onClick={copy}>
-                        {canShare ? <Share2 size={17} /> : <Copy size={17} />}
-                        {canShare ? t('結果を共有') : t('結果をコピー')}
-                      </button>
+                      {game && (
+                        <ShareButton
+                          text={
+                            language === 'en'
+                              ? englishShare(shareText(game, day))
+                              : shareText(game, day)
+                          }
+                        />
+                      )}
                     </div>
                     <a
                       className="dictionary-link"
-                      href={
-                        'https://jisho.org/search/' +
-                        encodeURIComponent(answer?.spelling || '')
-                      }
+                      href={jisho(answer?.spelling || '')}
                       target="_blank"
                       rel="noreferrer"
                     >
@@ -863,15 +843,6 @@ function GameView() {
                       <ExternalLink size={14} />
                     </a>
                     {mode === 'daily' && <NextPuzzle />}
-                    {copyFallback && (
-                      <textarea
-                        className="share-fallback"
-                        aria-label={t('コピー用の結果')}
-                        readOnly
-                        value={copyFallback}
-                        onFocus={(e) => e.currentTarget.select()}
-                      />
-                    )}
                   </section>
                 ) : (
                   <>
@@ -1043,7 +1014,7 @@ function GameView() {
             </p>
             <p>
               {t(
-                'ダブル：2つの言葉を同時に当てます。回答は両方の盤面に入り、9回以内に両方を当てれば正解。キーは左右で、それぞれの盤面の結果を示します。ハードモードは使いません。',
+                'ダブル：2つの言葉を同時に当てます。回答は両方の盤面に入り、9回以内に両方を当てれば正解。キーは左右で、それぞれの盤面の結果を示します。トリプルは3つの言葉を10回以内に。どちらもハードモードは使いません。',
               )}
             </p>
             <p>
