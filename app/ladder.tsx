@@ -33,7 +33,7 @@ import {
 import { KanaKeyboard, useKanaField } from './kana-input';
 import { useLanguage } from './language';
 import { NextPuzzle } from './next-puzzle';
-import { ShareButton, englishShare } from './share';
+import { ShareButton, englishShare, jisho, useFinePointer } from './share';
 
 type Round = {
   version: number;
@@ -47,10 +47,18 @@ type Round = {
 
 const spellings = commonWords as Record<string, string>;
 const three = (w: string) => [...w].length === LADDER_LENGTH;
-// The par counts common words only; built on first use.
+// The par climbs through common words; rungs may be any dictionary word, so
+// the full list only rules out pairs that rare words join too quickly.
+// Built on first use.
 let graph: ((word: string) => string[]) | null = null;
 const commonGraph = () =>
   (graph ??= ladderGraph(Object.keys(spellings).filter(three)));
+let anyGraph: ((word: string) => string[]) | null = null;
+const fullGraph = () =>
+  (anyGraph ??= ladderGraph([
+    ...Object.keys(spellings).filter(three),
+    ...[...valid].filter((w) => three(w) && !(w in spellings)),
+  ]));
 const ends = () =>
   answersFor(LADDER_LENGTH)
     .map((a) => a.reading)
@@ -69,6 +77,7 @@ function newRound(day: string): Round {
     ends(),
     commonGraph(),
     day ? seeded('ladder:' + day) : Math.random,
+    fullGraph(),
   )!;
   return {
     version: 1,
@@ -92,6 +101,7 @@ export function Ladder({
   onTyping: (typing: boolean) => void;
 }) {
   const { t, language } = useLanguage();
+  const finePointer = useFinePointer();
   const [round, setRound] = useState<Round | null>(null);
   const [message, setMessage] = useState('');
   const [error, setError] = useState(false);
@@ -179,9 +189,10 @@ export function Ladder({
     else setRound(newRound(''));
   }
 
+  // As on the boards: a mouse looks words up mid-game, touch once it is over.
   const row = (word: string, previous: string | null, className = '') => {
     const kanaList = [...word];
-    return (
+    const cells = (
       <>
         <span className="ladder-tiles" aria-hidden="true">
           {Array.from({ length: LADDER_LENGTH }, (_, i) => (
@@ -205,6 +216,21 @@ export function Ladder({
         </span>
       </>
     );
+    return finePointer || !playing ? (
+      <a
+        className="ladder-row"
+        href={jisho(spellings[word] ?? word)}
+        target="_blank"
+        rel="noreferrer"
+        title={t('辞書で見る')}
+        // Keep the caret in the field while playing.
+        onMouseDown={(e) => e.preventDefault()}
+      >
+        {cells}
+      </a>
+    ) : (
+      <div className="ladder-row">{cells}</div>
+    );
   };
   const path =
     round && !playing
@@ -217,7 +243,7 @@ export function Ladder({
           {day ? <h2>{day.replaceAll('-', ' / ')}</h2> : <span />}
           <span className="game-count">
             {t((round?.steps.length ?? 0) + '手')} ·{' '}
-            {t('最短 ' + (round?.par ?? 0))}
+            {t('パー' + (round?.par ?? 0))}
           </span>
         </div>
         <ol className="ladder-rungs" ref={list} aria-label={t('はしご')}>
@@ -236,21 +262,23 @@ export function Ladder({
           ))}
           {playing && round && (
             <li className="ladder-rung active" aria-hidden="true">
-              <span className="ladder-tiles">
-                {Array.from({ length: LADDER_LENGTH }, (_, i) => (
-                  <span
-                    key={i}
-                    className={
-                      'tile current' +
-                      (tiles[i] ? ' filled' : '') +
-                      (i === tiles.length ? ' caret' : '')
-                    }
-                  >
-                    <span>{tiles[i] ?? ''}</span>
-                  </span>
-                ))}
-              </span>
-              <span className="ladder-word" />
+              <div className="ladder-row">
+                <span className="ladder-tiles">
+                  {Array.from({ length: LADDER_LENGTH }, (_, i) => (
+                    <span
+                      key={i}
+                      className={
+                        'tile current' +
+                        (tiles[i] ? ' filled' : '') +
+                        (i === tiles.length ? ' caret' : '')
+                      }
+                    >
+                      <span>{tiles[i] ?? ''}</span>
+                    </span>
+                  ))}
+                </span>
+                <span className="ladder-word" />
+              </div>
             </li>
           )}
         </ol>
@@ -273,21 +301,36 @@ export function Ladder({
               {round.start} → {round.goal}
             </h2>
             <p>
-              {result === 'won'
-                ? t(
-                    round.steps.length +
-                      '手でゴール。最短は' +
-                      round.par +
-                      '手' +
-                      (round.steps.length <= round.par ? '。お見事！' : '。'),
-                  )
-                : t('最短は' + round.par + '手。')}
+              {result !== 'won'
+                ? t('パーは' + round.par + '手。')
+                : round.steps.length < round.par
+                  ? t(
+                      round.steps.length +
+                        '手でゴール。パーより' +
+                        (round.par - round.steps.length) +
+                        '手少ない！',
+                    )
+                  : round.steps.length === round.par
+                    ? t(round.steps.length + '手でゴール。パーぴったり！')
+                    : t(
+                        round.steps.length +
+                          '手でゴール。パーは' +
+                          round.par +
+                          '手。',
+                      )}
             </p>
+            <p className="ladder-path-label">{t('パーのはしご')}</p>
             <p className="ladder-path" lang="ja">
               {path.map((w, i) => (
                 <span key={w}>
                   {i ? '→ ' : ''}
-                  {w}
+                  <a
+                    href={jisho(spellings[w] ?? w)}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {w}
+                  </a>
                 </span>
               ))}
             </p>
@@ -393,7 +436,7 @@ export function Ladder({
             {t('ここで終了しますか？')}
           </AlertDialogTitle>
           <AlertDialogDescription className="help-intro">
-            {t('最短のはしごを表示して、この問題を終了します。')}
+            {t('パーのはしごを表示して、この問題を終了します。')}
           </AlertDialogDescription>
           <div className="dialog-actions">
             <button

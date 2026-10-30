@@ -140,8 +140,11 @@ export const englishShare = (text: string) =>
     .replace('しりとり', 'Shiritori')
     .replace('和同開珎', 'Kanji cross')
     .replace('はしご', 'Word ladder')
-    .replace(/(\d+|X)(?:手)?（最短(\d+)手）/, (_, n, par) =>
-      n === 'X' ? `X (par ${par})` : `${n} steps (par ${par})`,
+    .replace(
+      /(\d+|X)(?:手)?（パー(\d+)(?:、([−+]\d+))?）/,
+      (_, n, par, diff) =>
+        (n === 'X' ? 'X' : `${n} steps`) +
+        ` (par ${par}${diff ? ', ' + diff : ''})`,
     )
     .replace('[ハード]', '[Hard]')
     .replace('[ヒント]', '[Hints]')

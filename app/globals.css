@@ -2487,11 +2487,16 @@ a {
   overscroll-behavior: contain;
   list-style: none;
 }
-.ladder-rung {
+.ladder-row {
   display: grid;
   grid-template-columns: auto minmax(4em, 1fr);
   align-items: center;
   gap: 12px;
+  color: inherit;
+  text-decoration: none;
+}
+a.ladder-row:hover .ladder-word {
+  text-decoration: underline;
 }
 .ladder-tiles {
   display: flex;
@@ -2509,6 +2514,10 @@ a {
 .ladder-word {
   color: var(--muted-foreground);
   font-size: 14px;
+}
+.result-card .ladder-path-label {
+  margin: 10px 0 2px;
+  font-size: 12px;
 }
 .ladder-path {
   display: flex;

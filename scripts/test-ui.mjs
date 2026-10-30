@@ -1226,6 +1226,13 @@ const isThree = (w) => Array.from(w).length === 3;
 const ladderGraph = ladderLib.ladderGraph(
   Object.keys(pools.commonWords).filter(isThree),
 );
+// The par counts every word a rung may be, common ones first.
+const anyRung = ladderLib.ladderGraph([
+  ...Object.keys(pools.commonWords).filter(isThree),
+  ...[...pools.wordValid].filter(
+    (w) => isThree(w) && !(w in pools.commonWords),
+  ),
+]);
 const todayLadder = ladderLib.makeLadder(
   pools
     .answersFor(3)
@@ -1233,12 +1240,14 @@ const todayLadder = ladderLib.makeLadder(
     .filter((w) => w in pools.commonWords),
   ladderGraph,
   ladderLib.seeded('ladder:' + dayNow),
+  anyRung,
 );
 const climb = ladderLib.shortestPath(
   todayLadder.start,
   todayLadder.goal,
-  ladderGraph,
+  anyRung,
 );
+assert.ok(climb.length - 1 <= todayLadder.par, 'rare words can beat par');
 assert.equal(
   document.querySelector('.ladder-rung.start').getAttribute('aria-label'),
   'Start: ' + todayLadder.start,
@@ -1260,7 +1269,23 @@ for (const word of climb.slice(1)) {
   await submit();
 }
 await waitFor(() => document.querySelector('.ladder .result-card'));
-assert.ok(text().includes('Well played!'), 'par earns praise');
+assert.match(
+  text(),
+  /under par!|right on par!/,
+  'beating or matching par earns praise',
+);
+assert.deepEqual(
+  [...document.querySelectorAll('.ladder a.ladder-row')].map((a) =>
+    decodeURIComponent(a.href.replace('https://jisho.org/search/', '')),
+  ),
+  climb.map((w) => pools.commonWords[w] ?? w),
+  'every rung links to the dictionary once the ladder is done',
+);
+assert.equal(
+  document.querySelectorAll('.ladder-path a').length,
+  todayLadder.par + 1,
+  'so does the par ladder',
+);
 // 問題を作る: a word becomes a link that plays it.
 await act(async () => document.querySelector('.game-switch').click());
 await act(async () => document.querySelector('.game-create').click());
