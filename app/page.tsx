@@ -567,10 +567,6 @@ function GameView() {
                   <h2>{day ? day.replaceAll('-', ' / ') : t('今日の一問')}</h2>
                 )}
                 <span>
-                  {showHints && (
-                    <b className="mode-badge hints">{t('ヒント')}</b>
-                  )}
-                  {showHard && <b className="mode-badge hard">{t('ハード')}</b>}
                   {game
                     ? Math.min(game.guesses.length + (finished ? 0 : 1), LIMIT)
                     : 1}{' '}
@@ -676,6 +672,14 @@ function GameView() {
                   );
                 })}
               </div>
+              {(showHard || showHints) && (
+                <div className="mode-chips" aria-label={t('この問題のモード')}>
+                  {showHard && <b className="mode-badge hard">{t('ハード')}</b>}
+                  {showHints && (
+                    <b className="mode-badge hints">{t('ヒント')}</b>
+                  )}
+                </div>
+              )}
               <div className="legend" aria-label={t('色と記号の意味')}>
                 <span>
                   <i className="correct">✓</i>

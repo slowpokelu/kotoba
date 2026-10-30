@@ -1333,7 +1333,7 @@ a {
     --gap: 4px;
     --cols: 4;
     flex: 1 1 0;
-    min-height: calc(8 * 24px + 7 * var(--gap));
+    min-height: calc(8 * 23px + 7 * var(--gap));
     width: 100%;
     max-width: none;
     container-type: size;
@@ -1540,9 +1540,15 @@ a {
     box-shadow: 0 2px 0 #080e18;
   }
 }
-/* Round mode chips next to the guess counter. */
+/* Round mode chips, in a caption line under the board. */
+.mode-chips {
+  display: flex;
+  flex: none;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 8px;
+}
 .mode-badge {
-  margin-right: 6px;
   padding: 1px 6px;
   border: 1px solid currentColor;
   border-radius: 4px;
@@ -1589,4 +1595,15 @@ a {
 }
 .distribution-row.today strong {
   font-weight: 700;
+}
+
+@media (max-width: 760px) {
+  .mode-chips {
+    margin-top: 4px;
+  }
+  .mode-chips .mode-badge {
+    padding: 0 5px;
+    font-size: 10px;
+    line-height: 14px;
+  }
 }
