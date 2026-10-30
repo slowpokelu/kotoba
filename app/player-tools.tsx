@@ -376,7 +376,7 @@ export function PlayerTools({
                 <label className="switch-row">
                   <span>
                     {t(
-                      '✓のかなは同じ位置のまま、●のかなはその後の回答でも必ず使います。',
+                      '答えになりうる言葉だけ回答できます。✓は同じ位置、●は別の位置で使い、−のかなは使えません。',
                     )}
                   </span>
                   <Switch
