@@ -146,15 +146,25 @@ export function Bee({
           value={points}
         />
         <p className="bee-next">
-          {next
-            ? t(
-                '「' +
-                  next[1] +
-                  '」まで ' +
-                  Math.ceil(next[0] * total - points) +
-                  '点',
-              )
-            : t('全部見つけました！')}
+          <span>
+            {next
+              ? t(
+                  '「' +
+                    next[1] +
+                    '」まで ' +
+                    Math.ceil(next[0] * total - points) +
+                    '点',
+                )
+              : t('全部見つけました！')}
+          </span>
+          <span>
+            {t(
+              (round?.found.length ?? 0) +
+                ' / ' +
+                (puzzle?.answers.length ?? 0) +
+                '語',
+            )}
+          </span>
         </p>
         <ul className="bee-found" aria-label={t('見つけた言葉')}>
           {found.map((w) => (
@@ -186,16 +196,12 @@ export function Bee({
             </li>
           )}
         </ul>
-        <p className="bee-count">
-          {t(
-            (round?.found.length ?? 0) +
-              ' / ' +
-              (puzzle?.answers.length ?? 0) +
-              '語',
-          )}
-        </p>
       </div>
       <div className="control-column">
+        <div className="input-heading">
+          <label htmlFor="guess">{t('3文字以上の言葉')}</label>
+          {puzzle && <span>{t('「' + puzzle.center + '」を必ず使う')}</span>}
+        </div>
         <form
           className="guess-form"
           onSubmit={(e) => {
@@ -208,7 +214,6 @@ export function Bee({
             {...kana.inputProps}
             disabled={!playing}
             placeholder={t('ここに入力')}
-            aria-label={t('言葉')}
             aria-describedby="bee-message"
             aria-invalid={error || undefined}
             onFocus={() =>

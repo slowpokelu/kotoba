@@ -126,7 +126,9 @@ export const englishShare = (text: string) =>
     .replace('いじわる', 'Sneaky')
     .replace('ダブル', 'Double')
     .replace('トリプル', 'Triple')
+    .replace('しりとり', 'Shiritori')
     .replace('[ハード]', '[Hard]')
     .replace('[ヒント]', '[Hints]')
     .replace(/(\d)文字/, '$1 kana')
-    .replace(/ (\d+)手\n/, ' $1 guesses\n');
+    .replace(/ (\d+)手\n/, ' $1 guesses\n')
+    .replace(/ (\d+)語\n/, ' $1 words\n');

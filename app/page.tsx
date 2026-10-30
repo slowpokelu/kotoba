@@ -25,6 +25,7 @@ import { convertRomaji, previewKana } from '@/lib/kana-input.mjs';
 import { KanaKeyboard, useKanaField } from './kana-input';
 import { Shiritori } from './shiritori';
 import { Double } from './double';
+import { BoardKey } from './legend';
 import { Bee } from './bee';
 import { ShareButton, englishShare, jisho, useFinePointer } from './share';
 import { PlayerTools } from './player-tools';
@@ -753,40 +754,7 @@ function GameView() {
                     );
                   })}
                 </div>
-                {(showHard || showHints) && (
-                  <div
-                    className="mode-chips"
-                    aria-label={t('この問題のモード')}
-                  >
-                    {showHard && (
-                      <b className="mode-badge hard">{t('ハード')}</b>
-                    )}
-                    {showHints && (
-                      <b className="mode-badge hints">{t('ヒント')}</b>
-                    )}
-                  </div>
-                )}
-                <div className="legend" aria-label={t('色と記号の意味')}>
-                  <span>
-                    <i className="correct">✓</i>
-                    {t('位置も一致')}
-                  </span>
-                  <span>
-                    <i className="present">●</i>
-                    {t('別の位置')}
-                  </span>
-                  {showHints && (
-                    <span>
-                      <i className="near-correct">✓</i>
-                      <i className="near-present">●</i>
-                      {t('濁点・大小違い')}
-                    </span>
-                  )}
-                  <span>
-                    <i className="absent">−</i>
-                    {t('なし')}
-                  </span>
-                </div>
+                <BoardKey hard={showHard} hints={showHints} />
               </div>
               <div className="control-column">
                 {finished && revealing < 0 ? (
@@ -945,7 +913,11 @@ function GameView() {
       </Tabs>
       <footer>
         <span>
-          {mode === 'daily' ? t('一日一語。') : t('練習は何度でも。')}
+          {mode === 'daily'
+            ? t('一日一語。')
+            : mode === 'practice'
+              ? t('練習は何度でも。')
+              : t('気ままにどうぞ。')}
         </span>
         <button className="text-button" onClick={() => setHelp(true)}>
           {t('遊び方・出典')}

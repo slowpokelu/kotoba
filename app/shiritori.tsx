@@ -19,6 +19,7 @@ import {
   losesOnN,
   newShiritori,
   restoreShiritori,
+  shiritoriShare,
   tailKana,
   yourWords,
 } from '@/lib/shiritori.mjs';
@@ -31,7 +32,7 @@ import {
 } from '@/lib/word-pools.mjs';
 import { KanaKeyboard, useKanaField } from './kana-input';
 import { useLanguage } from './language';
-import { jisho, useFinePointer } from './share';
+import { ShareButton, englishShare, jisho, useFinePointer } from './share';
 
 type Link = { word: string; by: 'cpu' | 'you' };
 type Round = {
@@ -66,7 +67,7 @@ export function Shiritori({
   picker: React.ReactNode;
   onTyping: (typing: boolean) => void;
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const finePointer = useFinePointer();
   const [round, setRound] = useState<Round | null>(null);
   const [best, setBest] = useState(0);
@@ -250,14 +251,24 @@ export function Shiritori({
                 <RotateCcw size={17} />
                 {t('もう一度')}
               </button>
+              <ShareButton
+                text={
+                  language === 'en'
+                    ? englishShare(shiritoriShare(round))
+                    : shiritoriShare(round)
+                }
+              />
             </div>
           </section>
         ) : (
           <>
             <p className="next-kana">
-              {t('次は')}
-              <b lang="ja">「{need}」</b>
-              {t('から')}
+              <span>
+                {t('次は')}
+                <b lang="ja">「{need}」</b>
+                {t('から')}
+              </span>
+              <small>{t('2文字以上・「ん」で終わると負け')}</small>
             </p>
             <form
               className="guess-form"

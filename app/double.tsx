@@ -37,6 +37,7 @@ import {
 } from '@/lib/word-pools.mjs';
 import type { Status } from '@/lib/types';
 import { KanaKeyboard, boardNames, useKanaField } from './kana-input';
+import { BoardKey } from './legend';
 import { useLanguage } from './language';
 import { ShareButton, englishShare, jisho, useFinePointer } from './share';
 
@@ -274,11 +275,10 @@ export function Double({
             );
           })}
         </div>
-        {round?.hints && (
-          <div className="mode-chips">
-            <b className="mode-badge hints">{t('ヒント')}</b>
-          </div>
-        )}
+        <BoardKey
+          hard={false}
+          hints={round?.guesses.length ? !!round.hints : hintSetting}
+        />
       </div>
       <div className="control-column">
         {!playing && !busy && round ? (
@@ -325,6 +325,10 @@ export function Double({
           </section>
         ) : (
           <>
+            <div className="input-heading">
+              <label htmlFor="guess">{t('ひらがな4文字')}</label>
+              <span>{t('小さい「ゃ・ゅ・ょ・っ」も1文字')}</span>
+            </div>
             <form
               className="guess-form"
               onSubmit={(e) => {
@@ -338,7 +342,6 @@ export function Double({
                 disabled={!playing}
                 readOnly={busy}
                 placeholder={t('ここに入力')}
-                aria-label={t('ひらがな4文字')}
                 aria-describedby="double-message"
                 aria-invalid={error || undefined}
                 onFocus={() =>

@@ -968,6 +968,13 @@ assert.ok(
   document.querySelector('.shiritori .result-card'),
   'しりとり and its result survive a reload',
 );
+await click('Share result');
+assert.match(
+  document.querySelector('.share-preview').textContent,
+  /^Kotoba · Shiritori {2}\d+ words\n/,
+);
+await click('Close');
+await waitFor(() => !document.querySelector('.share-dialog'));
 // ダブル: every guess lands on both boards; keys show both halves.
 await choosePlay('double');
 assert.equal(document.querySelectorAll('.double-boards .board').length, 2);
