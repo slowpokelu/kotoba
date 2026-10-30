@@ -789,6 +789,10 @@ assert.ok(
   document.querySelector('.legend .near-correct'),
   'the legend explains outlines before the first guess',
 );
+assert.ok(
+  document.querySelector('.mode-badge.hints'),
+  'the board shows the hint chip',
+);
 const hintAnswer = saved().answer;
 const hintGuess = [...allValid].find(
   (w) =>
@@ -875,7 +879,10 @@ await type(opener);
 await submit();
 await settle();
 assert.equal(saved().hard, true, 'the first guess locks hard mode in');
-assert.ok(document.querySelector('.hard-badge'), 'the board shows hard mode');
+assert.ok(
+  document.querySelector('.mode-badge.hard'),
+  'the board shows hard mode',
+);
 await type(breaker);
 await submit();
 assert.ok(

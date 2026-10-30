@@ -1,16 +1,13 @@
 'use client';
 /* oxlint-disable react/react-compiler -- No React compiler is enabled; mount effects restore browser state and event handlers manage IME timing. */
 /* oxlint-disable typescript/no-misused-spread -- NFC kana are deliberately counted as individual code points, including small kana. */
-/* oxlint-disable typescript/no-deprecated -- keyCode 229 covers Safari IME confirmation, where isComposing can be false. */
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   HelpCircle,
-  Delete,
   ArrowRight,
   Copy,
   RotateCcw,
-  Keyboard,
   X,
   ExternalLink,
   Share2,
@@ -25,7 +22,8 @@ import {
   DialogClose,
 } from '@/components/ui/dialog';
 import { answers } from '@/lib/answers.mjs';
-import { convertInput, convertRomaji, previewKana } from '@/lib/kana-input.mjs';
+import { convertRomaji, previewKana } from '@/lib/kana-input.mjs';
+import { KanaKeyboard, useKanaField } from './kana-input';
 import { PlayerTools } from './player-tools';
 import { LanguageProvider, LanguageSwitcher, useLanguage } from './language';
 import {
@@ -49,7 +47,6 @@ import {
   PRACTICE_LENGTH_KEY,
   practiceId,
   savedPracticeLength,
-  normalize,
   resolveGuess,
   evaluate,
   keyboardStates,
@@ -59,7 +56,6 @@ import {
   newGame,
   restoreGame,
   outcome,
-  modifyLast,
   shareText,
   labels,
   marks,
@@ -71,20 +67,6 @@ import { gameKey } from '@/lib/profile.mjs';
 import type { Game, Status } from '@/lib/types';
 
 type Mode = 'daily' | 'practice';
-const rows = [
-  'あかさたなはまやらわ',
-  'いきしちにひみ　りを',
-  'うくすつぬふむゆるん',
-  'えけせてねへめ　れー',
-  'おこそとのほもよろ　',
-];
-const alternateRows = [
-  'がざだばぱぁゃっゔ　',
-  'ぎじぢびぴぃ　　　　',
-  'ぐずづぶぷぅゅ　　　',
-  'げぜでべぺぇ　　　　',
-  'ごぞどぼぽぉょゎ　　',
-];
 function loadGame(fallback: Game) {
   try {
     return restoreGame(
@@ -146,7 +128,6 @@ function GameView() {
   const [error, setError] = useState(false);
   const [help, setHelp] = useState(false);
   const [givingUp, setGivingUp] = useState(false);
-  const [extra, setExtra] = useState(false);
   const [revealing, setRevealing] = useState(-1);
   const [copyFallback, setCopyFallback] = useState('');
   const [storageWarning, setStorageWarning] = useState(false);
@@ -156,26 +137,15 @@ function GameView() {
   const [shake, setShake] = useState(0);
   const [canShare, setCanShare] = useState(false);
   const againButton = useRef<HTMLButtonElement>(null);
-  const field = useRef<HTMLInputElement>(null);
   const continueButton = useRef<HTMLButtonElement>(null);
-  const selection = useRef<{ start: number; end: number } | null>(null);
-  const composing = useRef(false);
-  const compositionEnd = useRef(0);
   const busy = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const gameRef = useRef(game);
   useEffect(() => {
     gameRef.current = game;
   }, [game]);
-  useLayoutEffect(() => {
-    if (selection.current && !composing.current) {
-      field.current?.setSelectionRange(
-        selection.current.start,
-        selection.current.end,
-      );
-    }
-    selection.current = null;
-  }, [game]);
+  const kana = useKanaField(game?.draft || '', edit);
+  const field = kana.field;
   // A mouse can look up guesses mid-game; touch waits for the result so a
   // stray tap near the keyboard never leaves the puzzle.
   const [finePointer, setFinePointer] = useState(false);
@@ -238,7 +208,7 @@ function GameView() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [field]);
   const currentDay = useRef('');
   const modeRef = useRef(mode);
   useEffect(() => {
@@ -339,15 +309,6 @@ function GameView() {
     setGame(next);
     say('');
   }
-  function typeInput(input: HTMLInputElement) {
-    const next = convertInput(
-      input.value,
-      input.selectionStart ?? input.value.length,
-      input.selectionEnd ?? input.value.length,
-    );
-    selection.current = next;
-    edit(next.value);
-  }
   function switchMode(value: unknown) {
     const next = value as Mode;
     if (next === mode || busy.current) return;
@@ -404,30 +365,7 @@ function GameView() {
   }
   function insert(k: string) {
     if (!game || finished || busy.current) return;
-    const input = field.current;
-    // Respect a selected range or caret when using the on-screen keys.
-    const start = input?.selectionStart ?? game.draft.length,
-      end = input?.selectionEnd ?? start;
-    const next = convertInput(
-      game.draft.slice(0, start) + k + game.draft.slice(end),
-      start + k.length,
-    );
-    if ([...normalize(next.value)].length > length) {
-      say(`${length}文字まで入力できます。`, true);
-      return;
-    }
-    selection.current = next;
-    edit(next.value);
-  }
-  function backspace() {
-    if (!game) return;
-    const start = field.current?.selectionStart ?? game.draft.length,
-      end = field.current?.selectionEnd ?? start;
-    const caret = start === end ? Math.max(0, start - 1) : start;
-    selection.current = { start: caret, end: caret };
-    if (start === end)
-      edit(game.draft.slice(0, Math.max(0, start - 1)) + game.draft.slice(end));
-    else edit(game.draft.slice(0, start) + game.draft.slice(end));
+    if (!kana.insert(k, length)) say(`${length}文字まで入力できます。`, true);
   }
   function submit() {
     const current = gameRef.current;
@@ -435,8 +373,7 @@ function GameView() {
       !current ||
       outcome(current) !== 'playing' ||
       busy.current ||
-      composing.current ||
-      Date.now() - compositionEnd.current < 150
+      kana.composingNow()
     )
       return;
     // Keep keyboard entry continuous, including after clicking the submit button.
@@ -630,7 +567,10 @@ function GameView() {
                   <h2>{day ? day.replaceAll('-', ' / ') : t('今日の一問')}</h2>
                 )}
                 <span>
-                  {showHard && <b className="hard-badge">{t('ハード')}</b>}
+                  {showHints && (
+                    <b className="mode-badge hints">{t('ヒント')}</b>
+                  )}
+                  {showHard && <b className="mode-badge hard">{t('ハード')}</b>}
                   {game
                     ? Math.min(game.guesses.length + (finished ? 0 : 1), LIMIT)
                     : 1}{' '}
@@ -823,45 +763,12 @@ function GameView() {
                   >
                     <input
                       id="guess"
-                      ref={field}
-                      lang="ja"
-                      value={game?.draft || ''}
+                      {...kana.inputProps}
                       disabled={!game || finished}
                       readOnly={revealing >= 0}
                       placeholder={t('ここに入力')}
-                      autoComplete="off"
-                      autoCapitalize="off"
-                      spellCheck={false}
                       aria-describedby="game-message"
                       aria-invalid={error || undefined}
-                      onChange={(e) => {
-                        if (
-                          composing.current ||
-                          (e.nativeEvent as InputEvent).isComposing ||
-                          Date.now() - compositionEnd.current < 150
-                        )
-                          edit(e.currentTarget.value);
-                        else typeInput(e.currentTarget);
-                      }}
-                      onCompositionStart={() => {
-                        selection.current = null;
-                        composing.current = true;
-                      }}
-                      onCompositionEnd={(e) => {
-                        composing.current = false;
-                        compositionEnd.current = Date.now();
-                        edit(normalize(e.currentTarget.value));
-                      }}
-                      onKeyDown={(e) => {
-                        if (
-                          e.key === 'Enter' &&
-                          (e.nativeEvent.isComposing ||
-                            composing.current ||
-                            e.keyCode === 229 ||
-                            Date.now() - compositionEnd.current < 150)
-                        )
-                          e.preventDefault();
-                      }}
                       onFocus={() =>
                         setTyping(
                           window.matchMedia('(pointer: coarse)').matches,
@@ -869,13 +776,7 @@ function GameView() {
                       }
                       onBlur={() => {
                         setTyping(false);
-                        if (
-                          game &&
-                          !composing.current &&
-                          game.draft !==
-                            normalize(convertRomaji(game.draft, true))
-                        )
-                          edit(normalize(convertRomaji(game.draft, true)));
+                        if (game) kana.commit();
                       }}
                     />
                     <button
@@ -924,83 +825,14 @@ function GameView() {
                   </>
                 )}
               </output>
-              <div
-                className={'keyboard-section ' + (finished ? 'finished' : '')}
-              >
-                <div className="keyboard-heading">
-                  <span>
-                    <Keyboard size={16} />
-                    {t('かな入力')}
-                  </span>
-                  <button
-                    className="text-button"
-                    aria-pressed={extra}
-                    onClick={() => setExtra(!extra)}
-                  >
-                    {extra ? t('五十音に戻す') : t('濁音・小文字')}
-                  </button>
-                </div>
-                <div
-                  className="keyboard"
-                  aria-label={
-                    extra
-                      ? t('濁音と小文字のキーボード')
-                      : t('五十音キーボード')
-                  }
-                >
-                  {(extra ? alternateRows : rows).flatMap((row, r) =>
-                    [...row].map((k, c) =>
-                      k === '　' ? (
-                        <span className="key-gap" key={r + '-' + c} />
-                      ) : (
-                        <button
-                          type="button"
-                          key={r + '-' + c}
-                          className={'kana-key ' + (keys[k] || '')}
-                          disabled={!game || finished || revealing >= 0}
-                          aria-label={
-                            k + (keys[k] ? '、' + t(labels[keys[k]]) : '')
-                          }
-                          onPointerDown={(e) => e.preventDefault()}
-                          onClick={() => insert(k)}
-                        >
-                          {k}
-                          {keys[k] && (
-                            <small aria-hidden="true">{marks[keys[k]]}</small>
-                          )}
-                        </button>
-                      ),
-                    ),
-                  )}
-                </div>
-                <div className="keyboard-tools">
-                  <button
-                    disabled={!game || finished || revealing >= 0}
-                    onPointerDown={(e) => e.preventDefault()}
-                    onClick={() => edit(modifyLast(game?.draft || '', 'voice'))}
-                    aria-label={t('最後のかなの濁点・半濁点を切り替え')}
-                  >
-                    ゛<span> / </span>゜
-                  </button>
-                  <button
-                    disabled={!game || finished || revealing >= 0}
-                    onPointerDown={(e) => e.preventDefault()}
-                    onClick={() => edit(modifyLast(game?.draft || '', 'small'))}
-                  >
-                    {t('大 ↔ 小')}
-                  </button>
-                  <button
-                    className="erase-key"
-                    disabled={!game || finished || revealing >= 0}
-                    onPointerDown={(e) => e.preventDefault()}
-                    onClick={backspace}
-                    aria-label={t('1文字消す')}
-                  >
-                    <Delete size={19} />
-                    {t('消す')}
-                  </button>
-                </div>
-              </div>
+              <KanaKeyboard
+                keys={keys}
+                disabled={!game || finished || revealing >= 0}
+                finished={finished}
+                onInsert={insert}
+                onModify={kana.modify}
+                onErase={() => game && kana.erase()}
+              />
               {storageWarning && (
                 <p className="storage-warning">
                   {t(

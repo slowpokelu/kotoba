@@ -1540,19 +1540,28 @@ a {
     box-shadow: 0 2px 0 #080e18;
   }
 }
-.hard-badge {
-  margin-right: 8px;
+/* Round mode chips next to the guess counter. */
+.mode-badge {
+  margin-right: 6px;
   padding: 1px 6px;
   border: 1px solid currentColor;
   border-radius: 4px;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.04em;
-  color: #b42332;
   vertical-align: 1px;
 }
-[data-theme='dark'] .hard-badge {
+.mode-badge.hard {
+  color: #b42332;
+}
+.mode-badge.hints {
+  color: #2b50bf;
+}
+[data-theme='dark'] .mode-badge.hard {
   color: #ff8f9a;
+}
+[data-theme='dark'] .mode-badge.hints {
+  color: #9fb4ff;
 }
 
 /* A refused guess shakes the row being typed. */
