@@ -706,8 +706,11 @@ for (const n of [3, 5, 6]) {
   assert.ok(
     document
       .querySelector('.share-preview')
-      .textContent.endsWith('https://slowpokelu.github.io/kotoba/practice/'),
-    'English practice result links to practice',
+      .textContent.endsWith(
+        'https://slowpokelu.github.io/kotoba/?w=' +
+          (await import('../lib/custom.mjs')).encodeWord(round.answer),
+      ),
+    'a practice result links to the same word',
   );
   await click('Close');
   await waitFor(() => !document.querySelector('.share-dialog'));
@@ -1286,9 +1289,33 @@ assert.equal(
   todayLadder.par + 1,
   'so does the par ladder',
 );
-// 問題を作る: a word becomes a link that plays it.
+// 問題を作る: by default an everyday word nobody sees, the same for everyone
+// who opens the link, the sender included.
+const { encodeWord, decodeWord } = await import('../lib/custom.mjs');
 await act(async () => document.querySelector('.game-switch').click());
 await act(async () => document.querySelector('.game-create').click());
+const randomInvite = document.querySelector('.share-preview').textContent;
+const randomCode = randomInvite.split('?w=')[1];
+const hiddenWord = decodeWord(randomCode);
+assert.ok(
+  pools.answersFor(4).some((a) => a.reading === hiddenWord),
+  'an everyday four-kana word',
+);
+assert.ok(!text().includes(hiddenWord), 'nobody sees the word');
+await click('Play it too');
+assert.equal(dom.window.location.search, '?w=' + randomCode);
+assert.equal(
+  document.querySelector('.board-column .game-heading h2').textContent,
+  "A friend's puzzle",
+);
+assert.equal(
+  document.querySelector('.board .guess-row').querySelectorAll('.tile').length,
+  4,
+);
+// Or the sender picks the word.
+await act(async () => document.querySelector('.game-switch').click());
+await act(async () => document.querySelector('.game-create').click());
+await click('Choose the word myself');
 const customField = document.querySelector('#custom-word');
 await act(async () => {
   Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(
@@ -1297,7 +1324,6 @@ await act(async () => {
   );
   customField.dispatchEvent(new Event('input', { bubbles: true }));
 });
-const { encodeWord } = await import('../lib/custom.mjs');
 const customCode = encodeWord('がっこう');
 assert.ok(
   document

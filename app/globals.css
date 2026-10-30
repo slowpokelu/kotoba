@@ -821,6 +821,20 @@ a {
   overflow-wrap: anywhere;
   user-select: text;
 }
+.custom-length {
+  flex-wrap: wrap;
+}
+.custom-length .icon-button {
+  width: 34px;
+  height: 34px;
+}
+.custom-play {
+  justify-self: start;
+}
+.custom-switch {
+  justify-self: start;
+  font-size: 13px;
+}
 .custom-word {
   display: grid;
   gap: 6px;

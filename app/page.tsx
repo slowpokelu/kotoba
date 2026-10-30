@@ -385,7 +385,8 @@ function GameView() {
       window.history.pushState(
         null,
         '',
-        routePath(base.current, next.game, next.practice),
+        routePath(base.current, next.game, next.practice) +
+          (next.custom ? '?w=' + next.custom : ''),
       );
     } catch {
       /* The game still switches without an address. */
@@ -628,6 +629,9 @@ function GameView() {
           open={creating}
           onOpenChange={setCreating}
           base={base.current}
+          onPlay={(code) =>
+            go({ game: 'kotoba', practice: false, custom: code })
+          }
         />
         <div className="game-panel">
           {mode === 'play' &&
@@ -1052,7 +1056,7 @@ function GameView() {
             <GameNote text="いじわる：回答するたびに、それまでの結果と矛盾しない別の言葉へ答えが逃げていく4文字のパズル。回数制限はなし。何手で追い詰められるか挑戦します。" />
             <GameNote text="しりとり：前の言葉の最後のかなから始まる、2文字以上の言葉で続けます。小さいかなは大きく（しゃ→や）、最後の「ー」は一つ前のかなで続けます。「ん」で終わると負け。同じ言葉は使えません。時間制限はありません。" />
             <GameNote text="「ふたり」にすると、1台を交代で使って先手と後手で対戦できます。" />
-            <GameNote text="問題を作る：メニューから答えの言葉を選ぶと、その言葉で遊べるリンクができます。友だちや家族に送ってみてください。" />
+            <GameNote text="問題を作る：おまかせの言葉で、みんなが同じ問題に挑戦できるリンクを作ります。言葉は誰にも見えないので、自分も遊べます。言葉を自分で決めることもできます。練習の結果を共有したときも、リンクから同じ言葉で遊べます。" />
             <h3>{t('かなの数え方')}</h3>
             <p>
               {t(

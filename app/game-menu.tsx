@@ -170,7 +170,7 @@ export function GameNav({
                   <Plus size={15} aria-hidden="true" />
                   {t('問題を作る')}
                 </b>
-                <small>{t('言葉を選んで、友だちにリンクを送る')}</small>
+                <small>{t('みんなで同じ言葉に挑戦するリンク')}</small>
               </button>
             </li>
           </ul>
