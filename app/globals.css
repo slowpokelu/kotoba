@@ -327,11 +327,11 @@ a {
   min-width: 0;
 }
 .board-column .game-heading {
-  max-width: 256px;
+  max-width: 340px;
   margin: 0 auto 18px;
 }
 .board-column .game-heading:has(.length-picker) {
-  max-width: 320px;
+  max-width: 420px;
 }
 .length-picker {
   display: flex;
@@ -517,7 +517,7 @@ a {
   flex-wrap: wrap;
   justify-content: center;
   gap: 12px;
-  margin: 8px 0 0;
+  margin: 16px 0 0;
 }
 .legend > span {
   display: flex;
@@ -1484,11 +1484,11 @@ a {
   }
   .board-column .game-heading {
     width: 100%;
-    max-width: 240px;
+    max-width: 320px;
     margin: 0 auto 4px;
   }
   .board-column .game-heading:has(.length-picker) {
-    max-width: 300px;
+    max-width: none;
   }
   .board {
     --gap: 4px;
@@ -1661,8 +1661,7 @@ a {
 /* Phones give the legend's row to the board; the help panel explains the
    colours and every tile keeps its mark. */
 @media (max-width: 760px) {
-  .legend,
-  .mode-chips:empty {
+  .legend {
     display: none;
   }
 }
@@ -1702,15 +1701,19 @@ a {
     box-shadow: 0 2px 0 #080e18;
   }
 }
-/* Round mode chips, in a caption line under the board. */
-.mode-chips {
-  display: flex;
-  flex: none;
-  justify-content: center;
-  gap: 6px;
-  min-height: 20px;
-  margin-top: 10px;
+/* The round's mode chips sit before its count in the heading row, which is
+   wide enough for them either way, so nothing moves when they appear. */
+.game-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
 }
+.mode-chips {
+  display: inline-flex;
+  gap: 4px;
+}
+
 .mode-badge {
   padding: 1px 6px;
   line-height: 16px;
@@ -1755,8 +1758,8 @@ a {
 }
 
 @media (max-width: 760px) {
-  .mode-chips {
-    margin-top: 4px;
+  .game-count {
+    gap: 8px;
   }
   .mode-chips .mode-badge {
     padding: 0 5px;

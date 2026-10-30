@@ -94,7 +94,14 @@ export function GameNav({
   };
   return (
     <nav className="game-nav" aria-label={t('ゲーム')}>
-      <div className="game-menu" ref={menu}>
+      <div
+        className="game-menu"
+        ref={menu}
+        // Tabbing or typing away from the list closes it.
+        onBlur={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget)) setOpen(false);
+        }}
+      >
         <button
           ref={trigger}
           className="game-switch"

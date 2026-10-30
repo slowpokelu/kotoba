@@ -40,7 +40,7 @@ import {
 } from '@/lib/word-pools.mjs';
 import type { Status } from '@/lib/types';
 import { KanaKeyboard, boardNames, useKanaField } from './kana-input';
-import { BoardKey } from './legend';
+import { Legend, ModeChips } from './legend';
 import { NextPuzzle } from './next-puzzle';
 import { useLanguage } from './language';
 import { ShareButton, englishShare, jisho, useFinePointer } from './share';
@@ -185,6 +185,8 @@ export function Double({
   }
 
   const turn = round ? round.guesses.length + (playing ? 1 : 0) : 1;
+  // A round follows the setting until its first guess, then keeps its mode.
+  const hints = round?.guesses.length ? !!round.hints : hintSetting;
   const label = boards === 3 ? 'トリプル' : 'ダブル';
   return (
     <section
@@ -194,7 +196,8 @@ export function Double({
       <div className="board-column">
         <div className="game-heading">
           {day ? <h2>{day.replaceAll('-', ' / ')}</h2> : <span />}
-          <span>
+          <span className="game-count">
+            <ModeChips hard={false} hints={hints} />
             {Math.min(turn, limit)} / {limit}
           </span>
         </div>
@@ -296,10 +299,7 @@ export function Double({
             );
           })}
         </div>
-        <BoardKey
-          hard={false}
-          hints={round?.guesses.length ? !!round.hints : hintSetting}
-        />
+        <Legend hints={hints} />
       </div>
       <div className="control-column">
         {!playing && !busy && round ? (

@@ -23,7 +23,7 @@ import { convertRomaji, previewKana } from '@/lib/kana-input.mjs';
 import { KanaKeyboard, useKanaField } from './kana-input';
 import { Shiritori } from './shiritori';
 import { Double } from './double';
-import { BoardKey } from './legend';
+import { Legend, ModeChips } from './legend';
 import { NextPuzzle } from './next-puzzle';
 import { GameNav, gameLabel, type Route } from './game-menu';
 import { parseRoute, routePath } from '@/lib/routes.mjs';
@@ -634,7 +634,8 @@ function GameView() {
                       {day ? day.replaceAll('-', ' / ') : t('今日の一問')}
                     </h2>
                   )}
-                  <span>
+                  <span className="game-count">
+                    <ModeChips hard={showHard} hints={showHints} />
                     {absurd
                       ? t(turn + '手目')
                       : `${Math.min(turn, limit)} / ${limit}`}
@@ -743,7 +744,7 @@ function GameView() {
                     );
                   })}
                 </div>
-                <BoardKey hard={showHard} hints={showHints} />
+                <Legend hints={showHints} />
               </div>
               <div className="control-column">
                 {finished && revealing < 0 ? (
@@ -904,9 +905,11 @@ function GameView() {
         <span>
           {mode === 'daily'
             ? t('一日一語。')
-            : mode === 'practice'
-              ? t('練習は何度でも。')
-              : t('気ままにどうぞ。')}
+            : route.practice ||
+                route.game === 'absurd' ||
+                route.game === 'shiritori'
+              ? t('何度でも遊べます。')
+              : t('毎日0時に新しい問題。')}
         </span>
         <button className="text-button" onClick={() => setHelp(true)}>
           {t('遊び方・出典')}
@@ -958,13 +961,13 @@ function GameView() {
             <h3>{t('ヒント表示')}</h3>
             <p>
               {t(
-                '設定でオンにすると、濁点・半濁点・大小だけが違うかなを枠線で示します。青い枠と✓は同じ位置、黄色い枠と●は別の位置。「き」に対して「ぎ」、「つ」に対して「っ」や「づ」などです。モードは各問題の最初の回答で決まります。',
+                '設定でオンにすると、濁点・半濁点・大小だけが違うかなを枠線で示します。青い枠と✓は同じ位置、黄色い枠と●は別の位置。「き」に対して「ぎ」、「つ」に対して「っ」や「づ」などです。モードは各問題の最初の回答で決まり、回数の横に表示されます。',
               )}
             </p>
             <h3>{t('ハードモード')}</h3>
             <p>
               {t(
-                '設定でオンにすると、それまでのヒントと矛盾しない、答えになりうる言葉だけ回答できます。✓のかなは同じ位置、●のかなは別の位置で使い、−のかなは使えません。ヒント表示もオンなら、枠線のヒントにも従います。モードは各問題の最初の回答で決まります。',
+                '設定でオンにすると、それまでのヒントと矛盾しない、答えになりうる言葉だけ回答できます。✓のかなは同じ位置、●のかなは別の位置で使い、−のかなは使えません。ヒント表示もオンなら、枠線のヒントにも従います。モードは各問題の最初の回答で決まり、回数の横に表示されます。',
               )}
             </p>
             <h3>{t('ほかのゲーム')}</h3>
