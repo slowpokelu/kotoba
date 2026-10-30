@@ -55,8 +55,8 @@ button {
 button:focus-visible,
 a:focus-visible,
 input:focus-visible {
-  outline: 3px solid var(--primary);
-  outline-offset: 3px;
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 .shell {
   max-width: 1040px;
@@ -988,23 +988,41 @@ a {
   font-size: 14px;
   line-height: 1.6;
 }
+/* The theme is one compact three-way switch. */
 .theme-options[data-slot] {
-  grid-template-columns: 1fr;
-  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--muted);
 }
 .theme-options label {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  cursor: pointer;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 36px;
+  padding: 0 6px;
   border-radius: 8px;
+  cursor: pointer;
   font-size: 14px;
+  color: var(--muted-foreground);
+  text-align: center;
+}
+.theme-options label [data-slot='radio-group-item'] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
 }
 .theme-options label:has([data-checked]) {
-  border-color: var(--primary);
-  background: var(--muted);
+  background: var(--background);
+  color: var(--foreground);
+  font-weight: 600;
+  box-shadow: 0 1px 3px #1728491f;
+}
+.theme-options label:has(:focus-visible) {
+  outline: 2px solid var(--primary);
 }
 .stats-grid {
   display: grid;
@@ -1027,27 +1045,37 @@ a {
 }
 .distribution-row {
   display: grid;
-  grid-template-columns: 18px minmax(0, 1fr) 30px;
+  grid-template-columns: 18px minmax(0, 1fr);
   align-items: center;
   gap: 10px;
   margin: 6px 0;
   font-size: 14px;
   font-variant-numeric: tabular-nums;
 }
-.bar-track {
-  height: 20px;
-  border-radius: 3px;
-  background: var(--muted);
-  overflow: hidden;
-}
+/* Bars carry their count, as in Wordle; today's solve is the blue one. */
 .stat-bar {
-  height: 100%;
-  background: #2b50bf;
-  border-radius: 3px;
-}
-.distribution-row strong {
+  min-width: 1.9em;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 4px;
+  background: #8090ab;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 22px;
   text-align: right;
-  font-weight: 500;
+}
+.distribution-row.today .stat-bar {
+  background: #2b50bf;
+}
+.stats-heading {
+  margin: 4px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+.play-stats {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 .panel-note {
   color: var(--muted-foreground);
@@ -1199,7 +1227,11 @@ a {
   color: #ffb4ac;
 }
 [data-theme='dark'] .stat-bar {
+  background: #4a5873;
+}
+[data-theme='dark'] .distribution-row.today .stat-bar {
   background: #668fff;
+  color: #0d1626;
 }
 @media (max-width: 380px) {
   .header-actions {
@@ -1594,13 +1626,6 @@ a {
     animation: none;
   }
 }
-/* Today's solve stands out in the distribution. */
-.distribution:has(.today) .distribution-row:not(.today) .stat-bar {
-  opacity: 0.55;
-}
-.distribution-row.today strong {
-  font-weight: 700;
-}
 
 @media (max-width: 760px) {
   .mode-chips {
@@ -1699,4 +1724,74 @@ a {
   .next-kana b {
     font-size: 22px;
   }
+}
+
+/* EN | JP as a small pill that matches the round icon buttons. */
+.language-switch {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+.language-switch button {
+  min-width: 34px;
+  height: 30px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.language-switch button[aria-pressed='true'] {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+@media (max-width: 760px) {
+  .language-switch button {
+    min-width: 30px;
+    height: 26px;
+    padding: 0 6px;
+  }
+}
+/* The winning row hops once after its reveal. */
+.guess-row.won .tile {
+  animation: hop 420ms ease both;
+  animation-delay: var(--delay);
+}
+@keyframes hop {
+  40% {
+    transform: translateY(-7px);
+  }
+  70% {
+    transform: translateY(1px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .guess-row.won .tile {
+    animation: none;
+  }
+}
+/* A finished round has no live message, so no blank strip under the card. */
+.control-column:has(.result-card) .status {
+  min-height: 0;
+  margin: 8px 0;
+}
+/* しりとり opens with the rule in the empty chain. */
+.chain-hint {
+  align-self: center;
+  margin: auto 0;
+  max-width: 26em;
+  padding: 0 12px;
+  color: var(--muted-foreground);
+  font-size: 13px;
+  line-height: 1.7;
+  text-align: center;
+}
+
+/* A filled button's ring is lighter, so it reads as a ring, not a border. */
+.primary-button:focus-visible {
+  outline-color: #9db2ee;
 }

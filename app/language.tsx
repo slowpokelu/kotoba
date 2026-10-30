@@ -8,23 +8,23 @@ const LanguageContext = createContext({
   setLanguage: (_value: string) => {},
   t: (text: string) => text,
 });
+// A saved choice wins; otherwise follow the browser, so a Japanese phone
+// starts in Japanese. Read before the first render to avoid an English flash.
+function initialLanguage() {
+  if (typeof window === 'undefined') return 'en';
+  let saved = null;
+  try {
+    saved = localStorage.getItem(LANGUAGE_KEY);
+  } catch {
+    /* Fall back to the browser language. */
+  }
+  const browserJapanese = navigator.languages?.some((l) =>
+    l.toLowerCase().startsWith('ja'),
+  );
+  return saved === 'ja' || (saved === null && browserJapanese) ? 'ja' : 'en';
+}
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  const [language, setLanguage] = useState('en');
-  useEffect(() => {
-    // A saved choice wins; otherwise follow the browser, so a Japanese phone
-    // starts in Japanese.
-    let saved = null;
-    try {
-      saved = localStorage.getItem(LANGUAGE_KEY);
-    } catch {
-      /* Fall back to the browser language. */
-    }
-    const browserJapanese = navigator.languages?.some((l) =>
-      l.toLowerCase().startsWith('ja'),
-    );
-    if (saved === 'ja' || (saved === null && browserJapanese))
-      setLanguage('ja');
-  }, []);
+  const [language, setLanguage] = useState(initialLanguage);
   useEffect(() => {
     document.documentElement.lang = language;
   }, [language]);
@@ -56,7 +56,7 @@ export function LanguageSwitcher() {
   }
   return (
     <>
-      <span>
+      <span className="language-switch">
         <button
           type="button"
           id="language-en"
@@ -65,9 +65,8 @@ export function LanguageSwitcher() {
           aria-pressed={language === 'en'}
           onClick={() => selectLanguage('en')}
         >
-          {language === 'en' ? <u>en</u> : 'en'}
+          EN
         </button>
-        <span aria-hidden="true"> / </span>
         <button
           type="button"
           id="language-ja"
@@ -76,7 +75,7 @@ export function LanguageSwitcher() {
           aria-pressed={language === 'ja'}
           onClick={() => selectLanguage('ja')}
         >
-          {language === 'ja' ? <u>jp</u> : 'jp'}
+          JP
         </button>
       </span>
       {notice && <output className="sr-only">{t(notice)}</output>}

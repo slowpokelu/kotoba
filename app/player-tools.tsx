@@ -27,9 +27,11 @@ import {
   outcome,
   HINTS_KEY,
   HARD_KEY,
+  ABSURD_BEST_KEY,
   PRACTICE_LENGTH_KEY,
 } from '@/lib/game.mjs';
 import { useLanguage } from './language';
+import { SHIRITORI_BEST_KEY } from '@/lib/shiritori.mjs';
 import type { Game } from '@/lib/types';
 
 // A switch for a per-round mode. A round keeps the mode it had at its first
@@ -253,6 +255,16 @@ export function PlayerTools({
     }
   }
   const stats = dailyStats(games, day || localDay());
+  // Bests from the あそび modes, read when the panel opens.
+  const playBest = { shiritori: 0, absurd: 0 };
+  if (panel === 'stats')
+    try {
+      playBest.shiritori =
+        Number(localStorage.getItem(SHIRITORI_BEST_KEY)) || 0;
+      playBest.absurd = Number(localStorage.getItem(ABSURD_BEST_KEY)) || 0;
+    } catch {
+      /* Show dashes when storage is blocked. */
+    }
   // Highlight today's row when today's puzzle was solved.
   const today = games.find((g) => g.id === 'daily:' + (day || localDay()));
   const todayRow =
@@ -302,17 +314,16 @@ export function PlayerTools({
             <X size={20} />
           </DialogClose>
           <DialogTitle className="help-title">
-            {panel === 'stats' ? t('今日の一問 · 成績') : t('設定')}
+            {panel === 'stats' ? t('成績') : t('設定')}
           </DialogTitle>
           {panel === 'stats' && (
             <DialogDescription className="help-intro">
-              {t(
-                'このブラウザに保存された、終了した一問の記録。練習は含みません。',
-              )}
+              {t('このブラウザに保存された記録です。練習は含みません。')}
             </DialogDescription>
           )}
           {panel === 'stats' ? (
             <>
+              <h3 className="stats-heading">{t('今日の一問')}</h3>
               <dl className="stats-grid">
                 {[
                   [stats.played, t('プレイ数')],
@@ -340,16 +351,28 @@ export function PlayerTools({
                     aria-label={t(`${i + 1}回で正解：${count}問`)}
                   >
                     <span>{i + 1}</span>
-                    <div className="bar-track">
-                      <div
-                        className="stat-bar"
-                        style={{ width: `${(count / maximum) * 100}%` }}
-                      />
+                    <div
+                      className="stat-bar"
+                      style={{ width: `${(count / maximum) * 100}%` }}
+                    >
+                      {count}
                     </div>
-                    <strong>{count}</strong>
                   </div>
                 ))}
               </section>
+              <h3 className="stats-heading">{t('あそび')}</h3>
+              <dl className="stats-grid play-stats">
+                <div>
+                  <dd>
+                    {playBest.shiritori ? t(playBest.shiritori + '語') : '—'}
+                  </dd>
+                  <dt>{t('しりとり 最長')}</dt>
+                </div>
+                <div>
+                  <dd>{playBest.absurd ? t(playBest.absurd + '手') : '—'}</dd>
+                  <dt>{t('いじわる 最少')}</dt>
+                </div>
+              </dl>
               {!stats.played && (
                 <p className="panel-note">
                   {t('一問を終えると、ここに成績が表示されます。')}
@@ -376,7 +399,7 @@ export function PlayerTools({
                 >
                   {(
                     [
-                      ['system', t('端末に合わせる')],
+                      ['system', t('自動')],
                       ['light', t('ライト')],
                       ['dark', t('ダーク')],
                     ] as const
@@ -399,7 +422,7 @@ export function PlayerTools({
               <ModeSetting
                 field="hard"
                 title="ハードモード"
-                description="答えになりうる言葉だけ回答できます。✓は同じ位置、●は別の位置で使い、−のかなは使えません。"
+                description="答えになりうる言葉だけ回答できます。"
                 checked={hard}
                 onChange={onHardChange}
                 game={game}

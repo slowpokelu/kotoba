@@ -200,6 +200,13 @@ export function Shiritori({
                 )}
             </li>
           ))}
+          {playing && round.chain.length === 1 && (
+            <li className="chain-hint">
+              {t(
+                '相手の言葉の最後のかなから始まる言葉を答えよう。「ん」で終わったら負け。',
+              )}
+            </li>
+          )}
           {thinking && (
             <li className="chain-word cpu thinking" aria-hidden="true">
               <b>…</b>

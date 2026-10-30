@@ -47,6 +47,7 @@ import {
   limitFor,
   dodge,
   PLAY_MODE_KEY,
+  ABSURD_BEST_KEY,
   PRACTICE_LENGTHS,
   PRACTICE_LENGTH_KEY,
   practiceId,
@@ -144,6 +145,8 @@ function GameView() {
   // Bumped on every refused guess to replay the row's shake.
   const [shake, setShake] = useState(0);
   const [canShare, setCanShare] = useState(false);
+  // The winning row hops once, right after its reveal.
+  const [celebrate, setCelebrate] = useState(false);
   const againButton = useRef<HTMLButtonElement>(null);
   const boardRef = useRef<HTMLDivElement>(null);
   const continueButton = useRef<HTMLButtonElement>(null);
@@ -316,6 +319,7 @@ function GameView() {
     observer.observe(board);
     return () => observer.disconnect();
   }, [game?.guesses.length, rows]);
+  useEffect(() => setCelebrate(false), [game?.id, game?.answer]);
   function savePreference(key: string, value: string) {
     try {
       localStorage.setItem(key, value);
@@ -466,13 +470,25 @@ function GameView() {
       busy.current = false;
       setRevealing(-1);
       const state = outcome(next);
-      if (state === 'won')
+      if (state === 'won') {
         say(
           '正解！ ' + next.guesses.length + '回で見つけました。',
           false,
           true,
         );
-      else if (state === 'lost')
+        setCelebrate(true);
+        if (next.id === 'absurd')
+          try {
+            const best = Number(localStorage.getItem(ABSURD_BEST_KEY)) || 0;
+            if (!best || next.guesses.length < best)
+              localStorage.setItem(
+                ABSURD_BEST_KEY,
+                String(next.guesses.length),
+              );
+          } catch {
+            /* The best stays unsaved. */
+          }
+      } else if (state === 'lost')
         say('答えは「' + next.answer + '」でした。', false, true);
       else
         say(
@@ -739,7 +755,8 @@ function GameView() {
                     const className =
                       'guess-row' +
                       (revealing === r ? ' reveal' : '') +
-                      (active && error && shake ? ' shake' : '');
+                      (active && error && shake ? ' shake' : '') +
+                      (celebrate && guess === game?.answer ? ' won' : '');
                     return lookup ? (
                       <a
                         className={className}

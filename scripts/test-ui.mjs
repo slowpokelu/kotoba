@@ -141,13 +141,13 @@ Object.defineProperty(navigator, 'languages', {
 });
 await mount();
 assert.equal(document.documentElement.lang, 'en', 'English is the default');
-assert.equal(document.querySelector('#language-en').textContent.trim(), 'en');
-assert.equal(document.querySelector('#language-ja').textContent.trim(), 'jp');
-assert.ok(document.querySelector('#language-en u'));
-absent('#language-ja u');
+const pressed = (id) =>
+  document.querySelector(id).getAttribute('aria-pressed') === 'true';
+assert.equal(document.querySelector('#language-en').textContent.trim(), 'EN');
+assert.equal(document.querySelector('#language-ja').textContent.trim(), 'JP');
+assert.ok(pressed('#language-en') && !pressed('#language-ja'));
 await click('日本語');
-assert.ok(document.querySelector('#language-ja u'));
-absent('#language-en u');
+assert.ok(pressed('#language-ja') && !pressed('#language-en'));
 assert.equal(document.querySelectorAll('.board .tile').length, 32);
 assert.equal(document.querySelectorAll('.guess-row .current').length, 4);
 const inputField = () => document.querySelector('#guess');
