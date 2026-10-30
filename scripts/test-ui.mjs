@@ -1289,6 +1289,25 @@ assert.equal(
   todayLadder.par + 1,
   'so does the par ladder',
 );
+// Statistics open on the game on screen; the dropdown shows the others.
+await click('Statistics');
+assert.equal(document.querySelector('.stats-game select').value, 'ladder');
+assert.ok(text().includes('Under par'), 'the ladder counts par');
+assert.equal(
+  document.querySelector('.par-stats dd').textContent,
+  climb.length - 1 < todayLadder.par ? '1' : '0',
+);
+await act(async () => {
+  const select = document.querySelector('.stats-game select');
+  select.value = 'kotoba';
+  select.dispatchEvent(new Event('change', { bubbles: true }));
+});
+assert.equal(
+  document.querySelectorAll('.distribution-row').length,
+  8,
+  'ことば keeps its eight-row distribution',
+);
+await click('Close');
 // 問題を作る: by default an everyday word nobody sees, the same for everyone
 // who opens the link, the sender included.
 const { encodeWord, decodeWord } = await import('../lib/custom.mjs');

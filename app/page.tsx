@@ -28,6 +28,7 @@ import { NextPuzzle } from './next-puzzle';
 import { GameNav, gameLabel, type Route } from './game-menu';
 import { parseRoute, routePath } from '@/lib/routes.mjs';
 import { decodeWord } from '@/lib/custom.mjs';
+import { ABSURD_PLAYED_KEY, countPlay } from '@/lib/stats.mjs';
 import { CreatePuzzle } from './custom-puzzle';
 import { Bee } from './bee';
 import { Wadou } from './wadou';
@@ -469,6 +470,7 @@ function GameView() {
     setGame(next);
     setGivingUp(false);
     say('答えは「' + next.answer + '」でした。', false, true);
+    if (next.id === 'absurd') countPlay(localStorage, ABSURD_PLAYED_KEY);
   }
   function insert(k: string) {
     if (!game || finished || busy.current) return;
@@ -531,6 +533,8 @@ function GameView() {
       busy.current = false;
       setRevealing(-1);
       const state = outcome(next);
+      if (next.id === 'absurd' && state !== 'playing')
+        countPlay(localStorage, ABSURD_PLAYED_KEY);
       if (state === 'won') {
         say(
           '正解！ ' + next.guesses.length + '回で見つけました。',
@@ -577,6 +581,7 @@ function GameView() {
         <div className="header-actions">
           <LanguageSwitcher />
           <PlayerTools
+            kind={route.game}
             game={shiritori || double || bee ? null : game}
             day={day}
             busy={revealing >= 0}

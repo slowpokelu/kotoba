@@ -33,6 +33,7 @@ const MENU: [GameName, string, string][] = [
   ['absurd', 'いじわる', '逃げる答えを追い詰める'],
   ['shiritori', 'しりとり', 'コンピューターと言葉をつなぐ'],
 ];
+export const GAME_ORDER = MENU.map(([game]) => game);
 export const gameLabel = (game: GameName) => MENU.find(([g]) => g === game)![1];
 
 // Today's puzzles that are already finished, for the check marks.

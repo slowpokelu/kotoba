@@ -2643,3 +2643,35 @@ a.ladder-row:hover .ladder-word {
   background: #2a3b56;
   color: #b3c7ff;
 }
+
+/* Statistics: one game at a time, picked here. 16px avoids the iOS zoom. */
+.stats-game {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+}
+.stats-game select {
+  appearance: none;
+  padding: 5px 32px 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--background);
+  color: var(--foreground);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+}
+.stats-game svg {
+  position: absolute;
+  right: 10px;
+  pointer-events: none;
+  color: var(--muted-foreground);
+}
+.stats-grid.par-stats {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: -6px;
+}
+.stats-grid.par-stats dd {
+  font-size: 22px;
+}

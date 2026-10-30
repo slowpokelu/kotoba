@@ -1,7 +1,14 @@
 'use client';
 /* oxlint-disable react/react-compiler -- Browser preferences are restored after hydration. */
 import { useEffect, useRef, useState } from 'react';
-import { BarChart3, Settings, X, Download, Upload } from 'lucide-react';
+import {
+  BarChart3,
+  ChevronDown,
+  Settings,
+  X,
+  Download,
+  Upload,
+} from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -32,7 +39,15 @@ import {
 } from '@/lib/game.mjs';
 import { useLanguage } from './language';
 import { SHIRITORI_BEST_KEY } from '@/lib/shiritori.mjs';
-import { doubleOutcome } from '@/lib/double.mjs';
+import {
+  ABSURD_PLAYED_KEY,
+  SHIRITORI_PLAYED_KEY,
+  beeStats,
+  ladderStats,
+  multiStats,
+  wadouStats,
+} from '@/lib/stats.mjs';
+import { GAME_ORDER, gameLabel, type GameName } from './game-menu';
 import type { Game } from '@/lib/types';
 
 // A switch for a per-round mode. A round keeps the mode it had at its first
@@ -89,6 +104,7 @@ type Backup = {
 };
 
 export function PlayerTools({
+  kind,
   game,
   day,
   busy,
@@ -99,6 +115,8 @@ export function PlayerTools({
   onHardChange,
   onImport,
 }: {
+  // The game on screen; statistics open on it.
+  kind: GameName;
   game: Game | null;
   day: string;
   busy: boolean;
@@ -111,6 +129,7 @@ export function PlayerTools({
 }) {
   const { language, setLanguage, t } = useLanguage();
   const [panel, setPanel] = useState<'stats' | 'settings' | null>(null);
+  const [view, setView] = useState<GameName>('kotoba');
   const [theme, setTheme] = useState('system');
   const [ready, setReady] = useState(false);
   const [games, setGames] = useState<Game[]>([]);
@@ -255,41 +274,81 @@ export function PlayerTools({
       );
     }
   }
-  const stats = dailyStats(games, day || localDay());
-  // Bests from the あそび modes, read when the panel opens.
-  const playBest = { shiritori: 0, absurd: 0 };
-  // Finished daily ダブル and トリプル rounds: [solved, played].
-  const multi = { double: [0, 0], triple: [0, 0] };
+  // The chosen game's numbers, read from storage while the panel is open.
+  const today = day || localDay();
+  let cards: [string | number, string][] = [];
+  let parCards: [number, string][] = [];
+  let distribution: number[] = [];
+  let todayRow = -1;
+  let played = 0;
+  const daily = !['bee', 'absurd', 'shiritori'].includes(view);
   if (panel === 'stats')
     try {
-      playBest.shiritori =
-        Number(localStorage.getItem(SHIRITORI_BEST_KEY)) || 0;
-      playBest.absurd = Number(localStorage.getItem(ABSURD_BEST_KEY)) || 0;
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i) ?? '';
-        const kind = /^kotoba:v1:(double|triple):daily:/.exec(key)?.[1] as
-          | 'double'
-          | 'triple'
-          | undefined;
-        if (!kind) continue;
-        try {
-          const result = doubleOutcome(JSON.parse(localStorage.getItem(key)!));
-          if (result === 'playing') continue;
-          multi[kind][1]++;
-          if (result === 'won') multi[kind][0]++;
-        } catch {
-          /* Skip one unreadable round. */
-        }
+      const streak = (stats: {
+        played: number;
+        rate: number;
+        current: number;
+        best: number;
+        distribution: number[];
+        todayGuesses: number;
+      }) => {
+        played = stats.played;
+        distribution = stats.distribution;
+        todayRow = stats.todayGuesses - 1;
+        cards = [
+          [stats.played, t('プレイ数')],
+          [stats.rate + '%', view === 'ladder' ? t('ゴール率') : t('正解率')],
+          [stats.current, t('現在の連勝')],
+          [stats.best, t('最高連勝')],
+        ];
+      };
+      if (view === 'kotoba') streak(dailyStats(games, today));
+      else if (view === 'double' || view === 'triple')
+        streak(multiStats(localStorage, view === 'triple' ? 3 : 2, today));
+      else if (view === 'wadou') streak(wadouStats(localStorage, today));
+      else if (view === 'ladder') {
+        const stats = ladderStats(localStorage, today);
+        streak(stats);
+        parCards = [
+          [stats.par.under, t('パーより少ない')],
+          [stats.par.on, t('パーぴったり')],
+          [stats.par.over, t('パーより多い')],
+        ];
+      } else if (view === 'bee') {
+        const stats = beeStats(localStorage, today);
+        played = stats.played;
+        cards = [
+          [stats.played, t('遊んだ日')],
+          [stats.best, t('最高得点')],
+          [stats.words, t('見つけた言葉')],
+          [stats.today, t('今日の点数')],
+        ];
+      } else {
+        const absurd = view === 'absurd';
+        const best =
+          Number(
+            localStorage.getItem(absurd ? ABSURD_BEST_KEY : SHIRITORI_BEST_KEY),
+          ) || 0;
+        played =
+          Number(
+            localStorage.getItem(
+              absurd ? ABSURD_PLAYED_KEY : SHIRITORI_PLAYED_KEY,
+            ),
+          ) || 0;
+        cards = [
+          [
+            best ? t(best + (absurd ? '手' : '語')) : '—',
+            absurd ? t('最少手数') : t('最長'),
+          ],
+          [played, t('遊んだ回数')],
+        ];
       }
     } catch {
-      /* Show dashes when storage is blocked. */
+      /* Show nothing when storage is blocked. */
     }
-  // Highlight today's row when today's puzzle was solved.
-  const today = games.find((g) => g.id === 'daily:' + (day || localDay()));
-  const todayRow =
-    today && outcome(today) === 'won' ? today.guesses.length - 1 : -1;
-  const maximum = Math.max(1, ...stats.distribution);
+  const maximum = Math.max(1, ...distribution);
   const open = (value: 'stats' | 'settings') => {
+    if (value === 'stats') setView(kind);
     setNotice('');
     setPending(null);
     setPanel(value);
@@ -342,78 +401,77 @@ export function PlayerTools({
           )}
           {panel === 'stats' ? (
             <>
-              <h3 className="stats-heading">{t('今日の一問')}</h3>
+              <label className="stats-game">
+                <span className="sr-only">{t('ゲーム')}</span>
+                <select
+                  value={view}
+                  onChange={(e) => setView(e.currentTarget.value as GameName)}
+                >
+                  {GAME_ORDER.map((g) => (
+                    <option key={g} value={g}>
+                      {t(gameLabel(g))}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown size={15} aria-hidden="true" />
+              </label>
               <dl className="stats-grid">
-                {[
-                  [stats.played, t('プレイ数')],
-                  [stats.rate + '%', t('正解率')],
-                  [stats.current, t('現在の連勝')],
-                  [stats.best, t('最高連勝')],
-                ].map(([value, label]) => (
+                {cards.map(([value, label]) => (
                   <div key={label}>
                     <dd>{value}</dd>
                     <dt>{label}</dt>
                   </div>
                 ))}
               </dl>
-              <section
-                className="distribution"
-                aria-label={t('正解までの回答数')}
-              >
-                <h3>{t('正解までの回答数')}</h3>
-                {stats.distribution.map((count: number, i: number) => (
-                  <div
-                    className={
-                      'distribution-row' + (i === todayRow ? ' today' : '')
-                    }
-                    key={i}
-                    aria-label={t(`${i + 1}回で正解：${count}問`)}
-                  >
-                    <span>{i + 1}</span>
-                    <div
-                      className="stat-bar"
-                      style={{ width: `${(count / maximum) * 100}%` }}
-                    >
-                      {count}
+              {parCards.length > 0 && (
+                <dl className="stats-grid par-stats">
+                  {parCards.map(([value, label]) => (
+                    <div key={label}>
+                      <dd>{value}</dd>
+                      <dt>{label}</dt>
                     </div>
-                  </div>
-                ))}
-              </section>
-              <h3 className="stats-heading">{t('ほかのゲーム')}</h3>
-              <dl className="stats-grid play-stats">
-                <div>
-                  <dd>
-                    {playBest.shiritori ? t(playBest.shiritori + '語') : '—'}
-                  </dd>
-                  <dt>{t('しりとり 最長')}</dt>
-                </div>
-                <div>
-                  <dd>{playBest.absurd ? t(playBest.absurd + '手') : '—'}</dd>
-                  <dt>{t('いじわる 最少')}</dt>
-                </div>
-                {(['double', 'triple'] as const).map((kind) => (
-                  <div key={kind}>
-                    <dd>
-                      {multi[kind][1]
-                        ? multi[kind][0] + ' / ' + multi[kind][1]
-                        : '—'}
-                    </dd>
-                    <dt>
-                      {t(kind === 'double' ? 'ダブル 正解' : 'トリプル 正解')}
-                    </dt>
-                  </div>
-                ))}
-              </dl>
-              {!stats.played && (
+                  ))}
+                </dl>
+              )}
+              {distribution.length > 0 && (
+                <section
+                  className="distribution"
+                  aria-label={t('正解までの回答数')}
+                >
+                  <h3>{t('正解までの回答数')}</h3>
+                  {distribution.map((count, i) => (
+                    <div
+                      className={
+                        'distribution-row' + (i === todayRow ? ' today' : '')
+                      }
+                      key={i}
+                      aria-label={t(`${i + 1}回で正解：${count}問`)}
+                    >
+                      <span>{i + 1}</span>
+                      <div
+                        className="stat-bar"
+                        style={{ width: `${(count / maximum) * 100}%` }}
+                      >
+                        {count}
+                      </div>
+                    </div>
+                  ))}
+                </section>
+              )}
+              {!played && (
                 <p className="panel-note">
-                  {t('一問を終えると、ここに成績が表示されます。')}
+                  {daily
+                    ? t('一問を終えると、ここに成績が表示されます。')
+                    : t('遊ぶと、ここに記録が表示されます。')}
                 </p>
               )}
-              <p className="panel-note">
-                {t(
-                  '日付は端末の時刻が基準です。不正解・途中終了、または一日空くと連勝が途切れます。',
-                )}
-              </p>
+              {daily && (
+                <p className="panel-note">
+                  {t(
+                    '日付は端末の時刻が基準です。不正解・途中終了、または一日空くと連勝が途切れます。',
+                  )}
+                </p>
+              )}
               <button className="text-button" onClick={() => open('settings')}>
                 {t('記録のバックアップ →')}
               </button>

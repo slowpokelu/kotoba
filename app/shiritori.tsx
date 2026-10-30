@@ -35,6 +35,7 @@ import {
 } from '@/lib/word-pools.mjs';
 import { KanaKeyboard, useKanaField } from './kana-input';
 import { useLanguage } from './language';
+import { SHIRITORI_PLAYED_KEY, countPlay } from '@/lib/stats.mjs';
 import { ShareButton, englishShare, jisho, useFinePointer } from './share';
 
 type Link = { word: string; by: 'cpu' | 'you' | 'p1' | 'p2' };
@@ -154,6 +155,7 @@ export function Shiritori({
       setRound(next);
       return;
     }
+    countPlay(localStorage, SHIRITORI_PLAYED_KEY);
     const score = yourWords(next);
     if (score > best) {
       setBest(score);
