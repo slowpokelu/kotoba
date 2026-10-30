@@ -12,15 +12,18 @@ import {
 } from '@/components/ui/alert-dialog';
 import { convertRomaji, previewKana } from '@/lib/kana-input.mjs';
 import {
+  dailyAnswer,
   evaluate,
   labels,
   marks,
   resolveGuess,
   validateGuess,
 } from '@/lib/game.mjs';
+import { answers as dailyPool } from '@/lib/answers.mjs';
 import {
   boardsKey,
   boardsLimit,
+  dailyAnswers,
   doubleOutcome,
   doubleShare,
   newDouble,
@@ -38,6 +41,7 @@ import {
 import type { Status } from '@/lib/types';
 import { KanaKeyboard, boardNames, useKanaField } from './kana-input';
 import { BoardKey } from './legend';
+import { NextPuzzle } from './next-puzzle';
 import { useLanguage } from './language';
 import { ShareButton, englishShare, jisho, useFinePointer } from './share';
 
@@ -58,15 +62,19 @@ const answersText = (answers: string[]) =>
   answers.join(answers.length > 2 ? '」「' : '」と「') +
   '」でした。';
 
-// ダブル and トリプル: one guess goes on every board.
+// ダブル and トリプル: one guess goes on every board. Today's round is the
+// same for everyone; practice deals new words each time.
 export function Double({
   boards,
-  picker,
+  day,
+  onPractice,
   onTyping,
   hintSetting,
 }: {
   boards: 2 | 3;
-  picker: React.ReactNode;
+  // Today's date for the daily round, or '' for practice.
+  day: string;
+  onPractice: () => void;
   onTyping: (typing: boolean) => void;
   hintSetting: boolean;
 }) {
@@ -80,7 +88,7 @@ export function Double({
   const continueButton = useRef<HTMLButtonElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const limit = boardsLimit(boards);
-  const key = boardsKey(boards);
+  const key = boardsKey(boards, day);
   const names = boardNames(boards);
 
   useEffect(() => {
@@ -95,11 +103,22 @@ export function Double({
     } catch {
       /* Start fresh when storage is unavailable. */
     }
-    setRound(saved ?? newDouble(pool, Math.random, boards));
+    // Today's words are a fixed draw, apart from the day's ことば.
+    const next = newDouble(pool, Math.random, boards);
+    if (day)
+      next.answers = dailyAnswers(day, pool, boards, [
+        dailyAnswer(day, dailyPool).reading,
+      ]);
+    setRound(
+      saved && (!day || saved.answers.join() === next.answers.join())
+        ? saved
+        : next,
+    );
+    setMessage('');
     return () => {
       if (timer.current) clearTimeout(timer.current);
     };
-  }, [key, boards]);
+  }, [key, boards, day]);
   useEffect(() => {
     if (!round) return;
     try {
@@ -160,7 +179,9 @@ export function Double({
   function restart() {
     if (busy) return;
     say('');
-    setRound(newDouble(pool, Math.random, boards));
+    // Today's round leads on to practice, as in the main game.
+    if (day) onPractice();
+    else setRound(newDouble(pool, Math.random, boards));
   }
 
   const turn = round ? round.guesses.length + (playing ? 1 : 0) : 1;
@@ -172,7 +193,7 @@ export function Double({
     >
       <div className="board-column">
         <div className="game-heading">
-          {picker}
+          {day ? <h2>{day.replaceAll('-', ' / ')}</h2> : <span />}
           <span>
             {Math.min(turn, limit)} / {limit}
           </span>
@@ -301,8 +322,8 @@ export function Double({
               <ShareButton
                 text={
                   language === 'en'
-                    ? englishShare(doubleShare(round))
-                    : doubleShare(round)
+                    ? englishShare(doubleShare(round, day))
+                    : doubleShare(round, day)
                 }
               />
             </div>
@@ -322,6 +343,7 @@ export function Double({
                 </a>
               ))}
             </p>
+            {day && <NextPuzzle />}
           </section>
         ) : (
           <>

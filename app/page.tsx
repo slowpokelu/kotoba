@@ -9,9 +9,7 @@ import {
   RotateCcw,
   X,
   ExternalLink,
-  ChevronDown,
 } from 'lucide-react';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
   Dialog,
@@ -26,6 +24,9 @@ import { KanaKeyboard, useKanaField } from './kana-input';
 import { Shiritori } from './shiritori';
 import { Double } from './double';
 import { BoardKey } from './legend';
+import { NextPuzzle } from './next-puzzle';
+import { GameNav, gameLabel, type Route } from './game-menu';
+import { parseRoute, routePath } from '@/lib/routes.mjs';
 import { Bee } from './bee';
 import { ShareButton, englishShare, jisho, useFinePointer } from './share';
 import { PlayerTools } from './player-tools';
@@ -49,7 +50,6 @@ import {
   LIMIT,
   limitFor,
   dodge,
-  PLAY_MODE_KEY,
   ABSURD_BEST_KEY,
   PRACTICE_LENGTHS,
   PRACTICE_LENGTH_KEY,
@@ -75,21 +75,14 @@ import { gameKey } from '@/lib/profile.mjs';
 import type { Game, Status } from '@/lib/types';
 
 type Mode = 'daily' | 'practice' | 'play';
-type PlayMode = 'absurd' | 'shiritori' | 'double' | 'triple' | 'bee';
-const PLAY_MODES: PlayMode[] = [
-  'absurd',
-  'double',
-  'triple',
-  'bee',
-  'shiritori',
-];
-const PLAY_LABELS = {
-  absurd: 'いじわる',
-  double: 'ダブル',
-  triple: 'トリプル',
-  bee: 'かなビー',
-  shiritori: 'しりとり',
-};
+const modeOf = (route: Route): Mode =>
+  route.game === 'kotoba' ? (route.practice ? 'practice' : 'daily') : 'play';
+// The address picks the game; the server sends the same page for each.
+function routeHere(): Route & { base: string } {
+  if (typeof window === 'undefined')
+    return { game: 'kotoba', practice: false, base: '/' };
+  return parseRoute(window.location.pathname) as Route & { base: string };
+}
 // いじわる picks from the everyday four-kana words.
 const absurdPool = answersFor(4).map((a) => a.reading);
 function loadGame(fallback: Game) {
@@ -111,29 +104,6 @@ function pickPractice(length = 4, previous = '') {
   return choices[number[0] % choices.length].reading;
 }
 
-// Counts down to local midnight, when the next daily puzzle starts.
-function NextPuzzle() {
-  const { t } = useLanguage();
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const tick = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(tick);
-  }, []);
-  const midnight = new Date(now);
-  midnight.setHours(24, 0, 0, 0);
-  const left = Math.max(0, midnight.getTime() - now);
-  const time = [3600000, 60000, 1000]
-    .map((unit, i) =>
-      String(Math.floor(left / unit) % (i ? 60 : 24)).padStart(2, '0'),
-    )
-    .join(':');
-  return (
-    <p className="next-day">
-      {t('次の一問まで')} <time>{time}</time>
-    </p>
-  );
-}
-
 export default function Home() {
   return (
     <LanguageProvider>
@@ -143,8 +113,13 @@ export default function Home() {
 }
 function GameView() {
   const { t, language } = useLanguage();
-  const [mode, setMode] = useState<Mode>('daily');
-  const [playMode, setPlayMode] = useState<PlayMode>('absurd');
+  const [route, setRoute] = useState<Route>(() => {
+    const { game, practice } = routeHere();
+    return { game, practice };
+  });
+  const base = useRef(routeHere().base);
+  const mode = modeOf(route);
+  const playMode = route.game;
   const [practiceLength, setPracticeLength] = useState(4);
   const [hintSetting, setHintSetting] = useState(false);
   const [hardSetting, setHardSetting] = useState(false);
@@ -228,20 +203,18 @@ function GameView() {
 
   useEffect(() => {
     const today = localDay();
+    let length = 4;
     currentDay.current = today;
     setDay(today);
     try {
-      setPracticeLength(savedPracticeLength(localStorage));
+      length = savedPracticeLength(localStorage);
+      setPracticeLength(length);
       setHintSetting(localStorage.getItem(HINTS_KEY) === '1');
       setHardSetting(localStorage.getItem(HARD_KEY) === '1');
-      const savedPlay = localStorage.getItem(PLAY_MODE_KEY) as PlayMode;
-      if (PLAY_MODES.includes(savedPlay)) setPlayMode(savedPlay);
     } catch {
       /* Use four kana if browser storage is unavailable. */
     }
-    setGame(
-      loadGame(newGame(dailyAnswer(today, answers).reading, 'daily:' + today)),
-    );
+    setGame(gameFor(modeRef.current, length));
     const tick = setInterval(() => {
       const next = localDay();
       if (next !== currentDay.current) {
@@ -356,21 +329,48 @@ function GameView() {
       return loadGame(newGame(pickPractice(length), practiceId(length)));
     return loadGame(newGame(pickPractice(4), 'absurd'));
   }
-  function switchMode(value: unknown) {
-    const next = value as Mode;
-    if (next === mode || busy.current) return;
-    setMode(next);
-    setGame(gameFor(next));
-    say('');
+  // Opens a game at its address. Back and forward come through show().
+  function go(next: Route) {
+    if (busy.current) return;
+    try {
+      window.history.pushState(
+        null,
+        '',
+        routePath(base.current, next.game, next.practice),
+      );
+    } catch {
+      /* The game still switches without an address. */
+    }
+    show(next);
+  }
+  function show(next: Route, length = practiceLength) {
+    if (timer.current) clearTimeout(timer.current);
+    busy.current = false;
+    setRoute(next);
+    setGame(gameFor(modeOf(next), length));
+    setGivingUp(false);
     setRevealing(-1);
-  }
-  function choosePlayMode(value: unknown) {
-    const next = value as PlayMode;
-    if (next === playMode || busy.current) return;
-    setPlayMode(next);
     say('');
-    savePreference(PLAY_MODE_KEY, next);
   }
+  // Tabs and bookmarks name the game.
+  useEffect(() => {
+    document.title =
+      route.game === 'kotoba'
+        ? 'ことば · Kotoba'
+        : gameLabel(route.game) + ' · ことば';
+  }, [route.game]);
+  const showRef = useRef(show);
+  useEffect(() => {
+    showRef.current = show;
+  });
+  useEffect(() => {
+    const back = () => {
+      const { game, practice } = routeHere();
+      showRef.current({ game, practice });
+    };
+    window.addEventListener('popstate', back);
+    return () => window.removeEventListener('popstate', back);
+  }, []);
   function again() {
     if (busy.current) return;
     setGame(
@@ -381,7 +381,18 @@ function GameView() {
             practiceId(practiceLength),
           ),
     );
-    if (!absurd) setMode('practice');
+    if (!absurd && mode !== 'practice') {
+      try {
+        window.history.pushState(
+          null,
+          '',
+          routePath(base.current, 'kotoba', true),
+        );
+      } catch {
+        /* The round still starts without an address. */
+      }
+      setRoute({ game: 'kotoba', practice: true });
+    }
     say('');
     setRevealing(-1);
   }
@@ -503,25 +514,6 @@ function GameView() {
     }, 650);
   }
 
-  // A compact dropdown, so the heading row fits any number of modes.
-  const playPicker = (
-    <label className="play-picker">
-      <span className="sr-only">{t('あそび')}</span>
-      <select
-        value={playMode}
-        onChange={(e) => choosePlayMode(e.currentTarget.value)}
-        disabled={revealing >= 0}
-      >
-        {PLAY_MODES.map((m) => (
-          <option key={m} value={m}>
-            {t(PLAY_LABELS[m])}
-          </option>
-        ))}
-      </select>
-      <ChevronDown size={15} aria-hidden="true" />
-    </label>
-  );
-
   return (
     <main className={'shell' + (typing ? ' typing' : '')}>
       <header className="masthead">
@@ -573,29 +565,26 @@ function GameView() {
           </button>
         </div>
       </header>
-      <Tabs value={mode} onValueChange={switchMode} className="game-tabs">
-        <TabsList aria-label={t('ゲームモード')} className="mode-list">
-          <TabsTrigger value="daily" disabled={revealing >= 0}>
-            {t('今日の一問')}
-          </TabsTrigger>
-          <TabsTrigger value="practice" disabled={revealing >= 0}>
-            {t('練習')}
-          </TabsTrigger>
-          <TabsTrigger value="play" disabled={revealing >= 0}>
-            {t('あそび')}
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value={mode} className="game-panel">
+      <div className="game-tabs">
+        <GameNav
+          route={route}
+          base={base.current}
+          day={day}
+          disabled={revealing >= 0}
+          onGo={go}
+        />
+        <div className="game-panel">
           {shiritori ? (
-            <Shiritori picker={playPicker} onTyping={setTyping} />
+            <Shiritori onTyping={setTyping} />
           ) : bee ? (
-            <Bee picker={playPicker} onTyping={setTyping} day={day} />
+            <Bee onTyping={setTyping} day={day} />
           ) : double ? (
             <Double
-              // A fresh component per mode, so ダブル and トリプル keep apart.
-              key={playMode}
+              // A fresh component per round, so each keeps its own state.
+              key={playMode + (route.practice ? ':practice' : ':' + day)}
               boards={playMode === 'triple' ? 3 : 2}
-              picker={playPicker}
+              day={route.practice ? '' : day}
+              onPractice={() => go({ ...route, practice: true })}
               onTyping={setTyping}
               hintSetting={hintSetting}
             />
@@ -639,7 +628,7 @@ function GameView() {
                       </RadioGroup>
                     </div>
                   ) : mode === 'play' ? (
-                    playPicker
+                    <span />
                   ) : (
                     <h2>
                       {day ? day.replaceAll('-', ' / ') : t('今日の一問')}
@@ -909,8 +898,8 @@ function GameView() {
               </div>
             </section>
           )}
-        </TabsContent>
-      </Tabs>
+        </div>
+      </div>
       <footer>
         <span>
           {mode === 'daily'
@@ -978,7 +967,7 @@ function GameView() {
                 '設定でオンにすると、それまでのヒントと矛盾しない、答えになりうる言葉だけ回答できます。✓のかなは同じ位置、●のかなは別の位置で使い、−のかなは使えません。ヒント表示もオンなら、枠線のヒントにも従います。モードは各問題の最初の回答で決まります。',
               )}
             </p>
-            <h3>{t('あそび')}</h3>
+            <h3>{t('ほかのゲーム')}</h3>
             <p>
               {t(
                 'かなビー：7つのかなで、よく使う言葉をできるだけ多く作ります。真ん中のかなは必ず使い、3文字以上。小さいかなは大きいかなで数え（しゃ→し・や）、「ー」はいつでも使えます。3文字は1点、それより長い言葉は文字数が点数、7つ全部を使うと7点追加。毎日0時に新しい問題になります。',
@@ -986,7 +975,7 @@ function GameView() {
             </p>
             <p>
               {t(
-                'ダブル：2つの言葉を同時に当てます。回答は両方の盤面に入り、9回以内に両方を当てれば正解。キーは左右で、それぞれの盤面の結果を示します。トリプルは3つの言葉を10回以内に。どちらもハードモードは使いません。',
+                'ダブル：2つの言葉を同時に当てます。回答は両方の盤面に入り、9回以内に両方を当てれば正解。キーは左右で、それぞれの盤面の結果を示します。トリプルは3つの言葉を10回以内に。どちらにも全員共通の今日の一問と練習があり、ハードモードは使いません。',
               )}
             </p>
             <p>

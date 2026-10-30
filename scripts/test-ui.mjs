@@ -65,7 +65,7 @@ const unmount = async () => {
 };
 const text = () => document.body.textContent;
 const button = (label) =>
-  [...document.querySelectorAll('button')].find(
+  [...document.querySelectorAll('button, .cadence a')].find(
     (b) =>
       b.textContent.trim() === label ||
       b.getAttribute('aria-label') === label ||
@@ -75,7 +75,24 @@ const click = async (label) => {
   const b = button(label);
   assert.ok(b, 'button exists: ' + label);
   await act(async () => {
-    b.click();
+    // Links get a real click event: the backup tests stub anchor clicks.
+    b.dispatchEvent(
+      new dom.window.MouseEvent('click', { bubbles: true, cancelable: true }),
+    );
+    await new Promise((r) => setTimeout(r, 25));
+  });
+};
+// Opens the game menu and follows a game's link.
+const chooseGame = async (name) => {
+  await act(async () => document.querySelector('.game-switch').click());
+  const link = [...document.querySelectorAll('.game-list a')].find(
+    (a) => a.querySelector('b').textContent === name,
+  );
+  assert.ok(link, 'game exists: ' + name);
+  await act(async () => {
+    link.dispatchEvent(
+      new dom.window.MouseEvent('click', { bubbles: true, cancelable: true }),
+    );
     await new Promise((r) => setTimeout(r, 25));
   });
 };
@@ -466,6 +483,8 @@ await unmount();
 localStorage.clear();
 const { localDay } = await import('../lib/game.mjs');
 localStorage.setItem('kotoba:v1:daily:' + localDay(), 'invalid-json');
+// The address picks the game; back to today's ことば.
+dom.window.history.replaceState(null, '', '/');
 await mount();
 await click('日本語');
 assert.equal(
@@ -494,6 +513,7 @@ assert.equal(
 await unmount();
 dom.window.Storage.prototype.setItem = originalSetItem;
 localStorage.clear();
+dom.window.history.replaceState(null, '', '/');
 await mount();
 await click('日本語');
 await click('答えを見る');
@@ -686,8 +706,8 @@ for (const n of [3, 5, 6]) {
   assert.ok(
     document
       .querySelector('.share-preview')
-      .textContent.endsWith('https://slowpokelu.github.io/kotoba/'),
-    'English practice result includes the public game link',
+      .textContent.endsWith('https://slowpokelu.github.io/kotoba/practice/'),
+    'English practice result links to practice',
   );
   await click('Close');
   await waitFor(() => !document.querySelector('.share-dialog'));
@@ -721,6 +741,7 @@ for (const id of ['practice', 'practice:3', 'practice:5', 'practice:6'])
 await click('Close');
 await unmount();
 localStorage.clear();
+dom.window.history.replaceState(null, '', '/');
 await mount();
 assert.equal(document.documentElement.lang, 'en');
 await click('Settings');
@@ -784,6 +805,7 @@ coarsePointer = false;
 // Near hints are off by default and locked into a round at its first guess.
 await unmount();
 localStorage.clear();
+dom.window.history.replaceState(null, '', '/');
 await mount();
 const { evaluate: score } = await import('../lib/game.mjs');
 const { allValid } = await import('../lib/word-pools.mjs');
@@ -867,6 +889,7 @@ assert.equal(
 // first guess on. A rule-breaking guess is refused without using a turn.
 await unmount();
 localStorage.clear();
+dom.window.history.replaceState(null, '', '/');
 await mount();
 const { hardModeError } = await import('../lib/game.mjs');
 await click('Settings');
@@ -906,8 +929,14 @@ assert.equal(saved().guesses.length, 2, 'a legal guess is accepted');
 // あそび: いじわる on a 12-row board, and しりとり against the computer.
 await unmount();
 localStorage.clear();
+dom.window.history.replaceState(null, '', '/');
 await mount();
-await click('Modes');
+await chooseGame('Sneaky');
+assert.equal(
+  dom.window.location.pathname,
+  '/sneaky/',
+  'いじわる has its own address',
+);
 assert.equal(
   document.querySelectorAll('.board .guess-row').length,
   8,
@@ -919,14 +948,7 @@ await settle();
 const sneaky = JSON.parse(localStorage.getItem('kotoba:v1:absurd'));
 assert.deepEqual(sneaky.guesses, ['かいしゃ']);
 assert.notEqual(sneaky.answer, 'かいしゃ', 'the answer dodges');
-const choosePlay = async (value) => {
-  const select = document.querySelector('.play-picker select');
-  await act(async () => {
-    select.value = value;
-    select.dispatchEvent(new Event('change', { bubbles: true }));
-  });
-};
-await choosePlay('shiritori');
+await chooseGame('Shiritori');
 const { tailKana } = await import('../lib/shiritori.mjs');
 const chainState = () =>
   JSON.parse(localStorage.getItem('kotoba:v1:shiritori'));
@@ -963,7 +985,6 @@ assert.equal(chainState().end, 'n', 'ending in ん loses');
 assert.ok(document.querySelector('.result-card'), 'the round ends');
 await unmount();
 await mount();
-await click('Modes');
 assert.ok(
   document.querySelector('.shiritori .result-card'),
   'しりとり and its result survive a reload',
@@ -975,8 +996,20 @@ assert.match(
 );
 await click('Close');
 await waitFor(() => !document.querySelector('.share-dialog'));
-// ダブル: every guess lands on both boards; keys show both halves.
-await choosePlay('double');
+// ダブル: today's two words, the same for everyone, apart from today's ことば.
+// Every guess lands on both boards; keys show both halves.
+await chooseGame('Double');
+assert.equal(dom.window.location.pathname, '/double/');
+const doubleLib = await import('../lib/double.mjs');
+const gameLib = await import('../lib/game.mjs');
+const { answers: dailyWords } = await import('../lib/answers.mjs');
+const dayNow = gameLib.localDay();
+const doublePool = (await import('../lib/word-pools.mjs'))
+  .answersFor(4)
+  .map((a) => a.reading);
+const todaysDouble = doubleLib.dailyAnswers(dayNow, doublePool, 2, [
+  gameLib.dailyAnswer(dayNow, dailyWords).reading,
+]);
 assert.equal(document.querySelectorAll('.double-boards .board').length, 2);
 assert.equal(
   document
@@ -986,11 +1019,13 @@ assert.equal(
   'ダブル has nine rows',
 );
 localStorage.setItem('kotoba:hard', '1');
-const doubleState = () => JSON.parse(localStorage.getItem('kotoba:v1:double'));
+const doubleState = () =>
+  JSON.parse(localStorage.getItem('kotoba:v1:double:daily:' + dayNow));
 await type('かいしゃ');
 await submit();
 await settle();
 assert.deepEqual(doubleState().guesses, ['かいしゃ']);
+assert.deepEqual(doubleState().answers, todaysDouble, "today's words");
 for (const board of document.querySelectorAll('.double-boards .board'))
   assert.equal(
     board.querySelectorAll('.guess-row')[0].textContent.replace(/[✓●−]/g, ''),
@@ -1017,7 +1052,6 @@ await settle();
 assert.equal(doubleState().guesses.length, 2, 'hard mode does not apply');
 await unmount();
 await mount();
-await click('Modes');
 assert.equal(
   document.querySelectorAll('.double-boards .guess-row .tile.filled').length,
   16,
@@ -1039,12 +1073,41 @@ assert.equal(
 await click('Share result');
 assert.match(
   document.querySelector('.share-preview').textContent,
-  /Double {2}X\/9/,
+  new RegExp('Double · ' + dayNow + ' {2}X/9'),
+);
+assert.ok(
+  document
+    .querySelector('.share-preview')
+    .textContent.endsWith('https://slowpokelu.github.io/kotoba/double/'),
 );
 await click('Close');
 await waitFor(() => !document.querySelector('.share-dialog'));
+assert.ok(
+  document.querySelector('.double .next-day'),
+  'counts down to the next',
+);
+await click('Play again');
+assert.equal(
+  dom.window.location.pathname,
+  '/double/practice/',
+  'then on to practice',
+);
+assert.equal(
+  document.querySelectorAll('.double-boards .tile.filled').length,
+  0,
+  'practice has its own round',
+);
+await click('Daily');
+assert.ok(doubleState().gaveUp, "today's round stays finished");
 // トリプル: three boards with their own save; keys in thirds.
-await choosePlay('triple');
+await click('Practice');
+await chooseGame('Triple');
+assert.equal(
+  dom.window.location.pathname,
+  '/triple/',
+  "a game opens on today's puzzle",
+);
+await click('Practice');
 assert.equal(document.querySelectorAll('.double-boards .board').length, 3);
 assert.equal(
   document
@@ -1060,9 +1123,22 @@ const tripleState = JSON.parse(localStorage.getItem('kotoba:v1:triple'));
 assert.equal(tripleState.answers.length, 3);
 assert.deepEqual(tripleState.guesses, ['かいしゃ']);
 assert.ok(document.querySelector('.kana-key.split.thirds.tried'));
-assert.ok(doubleState().gaveUp, 'ダブル keeps its own finished round');
+await click('Daily');
+const tripleToday = JSON.parse(
+  localStorage.getItem('kotoba:v1:triple:daily:' + dayNow) ?? 'null',
+);
+assert.ok(
+  !tripleToday || tripleToday.answers.every((a) => !todaysDouble.includes(a)),
+  "today's トリプル shares no word with today's ダブル",
+);
+await act(async () => document.querySelector('.game-switch').click());
+assert.ok(
+  document.querySelector('.game-list a[href="/double/"] svg'),
+  "the menu marks today's finished ダブル",
+);
+await act(async () => document.querySelector('.game-switch').click());
 // かなビー: today's seven kana; common words only, the centre always used.
-await choosePlay('bee');
+await chooseGame('Kana bee');
 const beeLib = await import('../lib/bee.mjs');
 const { commonWords } = await import('../lib/word-pools.mjs');
 const { localDay: today } = await import('../lib/game.mjs');
@@ -1095,7 +1171,6 @@ assert.equal(
 );
 await unmount();
 await mount();
-await click('Modes');
 assert.equal(
   document.querySelectorAll('.bee-found li').length,
   1,

@@ -32,6 +32,7 @@ import {
 } from '@/lib/game.mjs';
 import { useLanguage } from './language';
 import { SHIRITORI_BEST_KEY } from '@/lib/shiritori.mjs';
+import { doubleOutcome } from '@/lib/double.mjs';
 import type { Game } from '@/lib/types';
 
 // A switch for a per-round mode. A round keeps the mode it had at its first
@@ -257,11 +258,29 @@ export function PlayerTools({
   const stats = dailyStats(games, day || localDay());
   // Bests from the あそび modes, read when the panel opens.
   const playBest = { shiritori: 0, absurd: 0 };
+  // Finished daily ダブル and トリプル rounds: [solved, played].
+  const multi = { double: [0, 0], triple: [0, 0] };
   if (panel === 'stats')
     try {
       playBest.shiritori =
         Number(localStorage.getItem(SHIRITORI_BEST_KEY)) || 0;
       playBest.absurd = Number(localStorage.getItem(ABSURD_BEST_KEY)) || 0;
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i) ?? '';
+        const kind = /^kotoba:v1:(double|triple):daily:/.exec(key)?.[1] as
+          | 'double'
+          | 'triple'
+          | undefined;
+        if (!kind) continue;
+        try {
+          const result = doubleOutcome(JSON.parse(localStorage.getItem(key)!));
+          if (result === 'playing') continue;
+          multi[kind][1]++;
+          if (result === 'won') multi[kind][0]++;
+        } catch {
+          /* Skip one unreadable round. */
+        }
+      }
     } catch {
       /* Show dashes when storage is blocked. */
     }
@@ -360,7 +379,7 @@ export function PlayerTools({
                   </div>
                 ))}
               </section>
-              <h3 className="stats-heading">{t('あそび')}</h3>
+              <h3 className="stats-heading">{t('ほかのゲーム')}</h3>
               <dl className="stats-grid play-stats">
                 <div>
                   <dd>
@@ -372,6 +391,18 @@ export function PlayerTools({
                   <dd>{playBest.absurd ? t(playBest.absurd + '手') : '—'}</dd>
                   <dt>{t('いじわる 最少')}</dt>
                 </div>
+                {(['double', 'triple'] as const).map((kind) => (
+                  <div key={kind}>
+                    <dd>
+                      {multi[kind][1]
+                        ? multi[kind][0] + ' / ' + multi[kind][1]
+                        : '—'}
+                    </dd>
+                    <dt>
+                      {t(kind === 'double' ? 'ダブル 正解' : 'トリプル 正解')}
+                    </dt>
+                  </div>
+                ))}
               </dl>
               {!stats.played && (
                 <p className="panel-note">

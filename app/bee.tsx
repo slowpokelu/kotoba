@@ -51,11 +51,9 @@ const ring = [
 ];
 
 export function Bee({
-  picker,
   onTyping,
   day,
 }: {
-  picker: React.ReactNode;
   onTyping: (typing: boolean) => void;
   day: string;
 }) {
@@ -134,7 +132,7 @@ export function Bee({
     <section className="play-area bee" aria-label={t('かなビー')}>
       <div className="board-column">
         <div className="game-heading">
-          {picker}
+          <h2>{day.replaceAll('-', ' / ')}</h2>
           <span>
             {t(points + '点')} · {t(rank.name)}
           </span>

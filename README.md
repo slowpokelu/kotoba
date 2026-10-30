@@ -4,7 +4,14 @@
 
 A Japanese word puzzle with eight guesses. One four-kana word a day, plus unlimited practice with three, four, five or six kana.
 
-The あそび tab adds more modes: いじわる, an Absurdle-style puzzle whose answer dodges every guess until you corner it; ダブル and トリプル, two or three words at once as in Dordle; かなビー, a daily Spelling Bee with seven kana; and しりとり against the computer, with no time limit.
+More games from the menu, each at its own address:
+
+- ダブル and トリプル (`/double/`, `/triple/`): two or three words at once as in Dordle, with a daily puzzle and practice (`…/practice/`).
+- かなビー (`/bee/`): a daily Spelling Bee with seven kana.
+- いじわる (`/sneaky/`): an Absurdle-style puzzle whose answer dodges every guess until you corner it.
+- しりとり (`/shiritori/`): against the computer, with no time limit.
+
+The menu checks off today's finished puzzles. The build copies `index.html` into each address folder so GitHub Pages serves them.
 
 - Japanese and English interface.
 - Optional near hints: outlines kana that differ only by 濁点, 半濁点 or size (き/ぎ, つ/っ/づ), in the same spot or elsewhere. Each round keeps the mode it had at its first guess.

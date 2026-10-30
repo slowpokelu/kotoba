@@ -61,10 +61,8 @@ const opening = () =>
   newShiritori(cpuWord(null, [], [everyday]) ?? everyday[0]) as Round;
 
 export function Shiritori({
-  picker,
   onTyping,
 }: {
-  picker: React.ReactNode;
   onTyping: (typing: boolean) => void;
 }) {
   const { t, language } = useLanguage();
@@ -185,7 +183,7 @@ export function Shiritori({
     <section className="play-area shiritori" aria-label={t('しりとり')}>
       <div className="board-column">
         <div className="game-heading">
-          {picker}
+          <span />
           <span>
             {t(score + '語')} · {t('最高 ' + best)}
           </span>

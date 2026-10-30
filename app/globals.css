@@ -211,23 +211,109 @@ a {
   background: white;
   border-color: #8295bb;
 }
-.mode-list[data-slot] {
+/* The game switcher and, beside it, today/practice. */
+.game-nav {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+}
+.game-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 14px 0 18px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: white;
+  color: var(--foreground);
+  font-size: 15px;
+  font-weight: 700;
+  box-shadow: 0 2px 5px #1728490d;
+}
+.game-switch svg {
+  color: var(--muted-foreground);
+  transition: transform 150ms ease;
+}
+.game-switch[aria-expanded='true'] svg {
+  transform: rotate(180deg);
+}
+.cadence {
+  display: inline-flex;
   height: 44px;
   padding: 4px;
-  background: #e3e8f1;
-  border-radius: 10px;
   gap: 3px;
+  border-radius: 10px;
+  background: #e3e8f1;
 }
-.mode-list [data-slot='tabs-trigger'] {
-  padding: 8px 28px;
-  font-size: 14px;
-  min-height: 36px;
+.cadence a {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 22px;
+  border-radius: 7px;
   color: #52617b;
+  font-size: 14px;
+  text-decoration: none;
 }
-.mode-list [data-active] {
+.cadence a[aria-current] {
   background: white;
   color: #254cca;
   box-shadow: 0 2px 5px #1728490d;
+}
+.game-list {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 6px);
+  left: 50%;
+  translate: -50% 0;
+  width: min(340px, calc(100vw - 32px));
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: white;
+  box-shadow: 0 12px 32px #17284924;
+}
+.game-list a {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 10px;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 8px;
+  color: var(--foreground);
+  text-decoration: none;
+}
+.game-list b {
+  font-size: 15px;
+}
+.game-list small {
+  grid-column: 1;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.game-list svg {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  color: #2b50bf;
+}
+.game-list a:hover {
+  background: #eef2fa;
+}
+.game-list a[aria-current] {
+  background: #e8eefc;
+}
+.game-list a[aria-current] b {
+  color: #254cca;
+}
+/* The games to play any time, after the daily ones. */
+.game-list .first-free {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
 }
 .play-area {
   display: grid;
@@ -968,9 +1054,6 @@ a {
     scroll-behavior: auto !important;
   }
 }
-.game-tabs {
-  gap: 0 !important;
-}
 .give-up {
   display: block;
   margin: 6px 0 0 auto;
@@ -1202,14 +1285,30 @@ a {
 [data-theme='dark'] .legend i.near-present {
   color: #f3cb74;
 }
-[data-theme='dark'] .mode-list[data-slot] {
+[data-theme='dark'] .cadence {
   background: #192539;
 }
-[data-theme='dark'] .mode-list [data-slot='tabs-trigger'] {
+[data-theme='dark'] .cadence a {
   color: #a7b6d0;
 }
-[data-theme='dark'] .mode-list [data-active] {
+[data-theme='dark'] .cadence a[aria-current] {
   background: #2a3b56;
+  color: #b3c7ff;
+}
+[data-theme='dark'] .game-switch,
+[data-theme='dark'] .game-list {
+  border-color: #374660;
+  background: #172236;
+  color: #e3eaf7;
+}
+[data-theme='dark'] .game-list a:hover {
+  background: #1f2d45;
+}
+[data-theme='dark'] .game-list a[aria-current] {
+  background: #2a3b56;
+}
+[data-theme='dark'] .game-list a[aria-current] b,
+[data-theme='dark'] .game-list svg {
   color: #b3c7ff;
 }
 [data-theme='dark'] .guess-form input,
@@ -1264,8 +1363,7 @@ a {
     gap: 16px;
   }
 }
-.game-tabs > .mode-list {
-  align-self: center;
+.game-nav {
   margin: 24px 0 30px;
 }
 .game-panel {
@@ -1284,7 +1382,7 @@ a {
   }
 }
 @media (min-width: 1000px) {
-  .game-tabs > .mode-list {
+  .game-nav {
     margin: 28px 0 38px;
   }
 }
@@ -1351,15 +1449,24 @@ a {
     flex-direction: column;
     min-height: 0;
   }
-  .game-tabs > .mode-list {
+  .game-nav {
     margin: 8px 0 6px;
+    gap: 8px;
   }
-  .mode-list[data-slot] {
-    height: 34px;
+  .game-switch,
+  .cadence {
+    height: 36px;
   }
-  .mode-list [data-slot='tabs-trigger'] {
-    min-height: 28px;
-    padding: 3px 28px;
+  .game-switch {
+    padding: 0 10px 0 14px;
+    font-size: 16px;
+  }
+  .cadence {
+    padding: 3px;
+  }
+  .cadence a {
+    padding: 0 14px;
+    font-size: 13px;
   }
   .play-area {
     flex: 1;
@@ -1577,7 +1684,7 @@ a {
     padding-bottom: 6px;
   }
   .shell.typing .masthead,
-  .shell.typing .game-tabs > .mode-list {
+  .shell.typing .game-nav {
     display: none;
   }
   .shell.typing .board-column .game-heading {
@@ -1674,12 +1781,6 @@ a {
   .chain {
     contain: size;
   }
-}
-/* The あそび picker reuses the length chips with text labels. */
-.play-choice > span {
-  width: auto;
-  padding: 0 10px;
-  font-size: 13px;
 }
 
 /* しりとり: the chain reads like a conversation, the computer on the left
@@ -1852,41 +1953,6 @@ a {
   outline-color: #9db2ee;
 }
 
-/* The あそび picker: a compact dropdown chip. 16px on phones avoids the iOS
-   zoom on focus. */
-.play-picker {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-}
-.play-picker select {
-  appearance: none;
-  padding: 5px 30px 5px 12px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--background);
-  color: var(--foreground);
-  font: inherit;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-}
-.play-picker select:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
-}
-.play-picker svg {
-  position: absolute;
-  right: 10px;
-  pointer-events: none;
-  color: var(--muted-foreground);
-}
-@media (max-width: 760px) {
-  .play-picker select {
-    font-size: 16px;
-    padding: 1px 30px 1px 12px;
-  }
-}
 /* Outside the main board, the heading row spans the content below it. */
 .board-column .game-heading:is(.triple *, .bee *, .shiritori *) {
   max-width: none;
