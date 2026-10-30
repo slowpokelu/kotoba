@@ -28,8 +28,14 @@ const content = new Set([
   'adverb',
   'adverb (to)',
 ]);
+// The source has no "vulgar" tag, so leave out words whose main meaning is
+// sexual or crude: they should never be an answer or a computer's word.
+const crude =
+  /\b(penis|vagina|genitals|genitalia|testicles?|scrotum|anus|sexual intercourse|have sex|orgasm|masturbat\w*|erection|ejaculat\w*|semen|nipples?|breasts|boobs|buttocks|bum|arse|fuck\w*|shit|piss|bitch|whore|prostitut\w*|obscen\w*|porn\w*|rape|slut|feces|faeces|poop|excrement|erotic|lewd)\b/i;
 const words = {};
 for (const entry of data.datasets.vocab) {
+  // Only the primary sense counts: 息子 or おかず have crude slang senses too.
+  if (crude.test(entry.meanings?.[0] ?? '')) continue;
   const reading = toHiragana(entry.reading ?? '');
   const length = [...reading].length;
   if (!/^[ぁ-ゖー]+$/u.test(reading) || length < 2 || length > 8) continue;

@@ -997,6 +997,46 @@ assert.equal(
   16,
   'ダブル survives a reload',
 );
+// かなビー: today's seven kana; common words only, the centre always used.
+await choosePlay('bee');
+const beeLib = await import('../lib/bee.mjs');
+const { commonWords } = await import('../lib/word-pools.mjs');
+const { localDay: today } = await import('../lib/game.mjs');
+const beePuzzle = beeLib.beePuzzle(today(), beeLib.beeWords(commonWords));
+assert.equal(document.querySelectorAll('.honeycomb .cell').length, 7);
+assert.equal(
+  document.querySelector('.honeycomb .cell.center').textContent,
+  beePuzzle.center,
+);
+await type(beePuzzle.outer.slice(0, 3).join(''));
+await submit();
+assert.ok(
+  document.querySelector('.status.error').textContent.includes('centre'),
+  'a word without the centre kana is refused',
+);
+await type(beePuzzle.answers[0]);
+await submit();
+const beeState = () =>
+  JSON.parse(localStorage.getItem('kotoba:v1:bee:' + today()));
+assert.deepEqual(beeState().found, [beePuzzle.answers[0]]);
+assert.equal(document.querySelectorAll('.bee-found li').length, 1);
+await type('');
+await act(async () =>
+  document.querySelector('.honeycomb .cell.center').click(),
+);
+assert.equal(
+  document.querySelector('#guess').value,
+  beePuzzle.center,
+  'tapping a cell types its kana',
+);
+await unmount();
+await mount();
+await click('Modes');
+assert.equal(
+  document.querySelectorAll('.bee-found li').length,
+  1,
+  'found words survive a reload',
+);
 await unmount();
 URL.createObjectURL = oldURL;
 URL.revokeObjectURL = oldRevoke;

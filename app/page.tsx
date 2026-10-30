@@ -27,6 +27,7 @@ import { convertRomaji, previewKana } from '@/lib/kana-input.mjs';
 import { KanaKeyboard, useKanaField } from './kana-input';
 import { Shiritori } from './shiritori';
 import { Double } from './double';
+import { Bee } from './bee';
 import { englishShare, sendResult, useCanShare } from './share';
 import { PlayerTools } from './player-tools';
 import { LanguageProvider, LanguageSwitcher, useLanguage } from './language';
@@ -75,11 +76,12 @@ import { gameKey } from '@/lib/profile.mjs';
 import type { Game, Status } from '@/lib/types';
 
 type Mode = 'daily' | 'practice' | 'play';
-type PlayMode = 'absurd' | 'shiritori' | 'double';
-const PLAY_MODES: PlayMode[] = ['absurd', 'double', 'shiritori'];
+type PlayMode = 'absurd' | 'shiritori' | 'double' | 'bee';
+const PLAY_MODES: PlayMode[] = ['absurd', 'double', 'bee', 'shiritori'];
 const PLAY_LABELS = {
   absurd: 'いじわる',
   double: 'ダブル',
+  bee: 'かなビー',
   shiritori: 'しりとり',
 };
 // いじわる picks from the everyday four-kana words.
@@ -289,6 +291,7 @@ function GameView() {
   const rows = absurd ? Math.max(LIMIT, turn) : limit;
   const shiritori = mode === 'play' && playMode === 'shiritori';
   const double = mode === 'play' && playMode === 'double';
+  const bee = mode === 'play' && playMode === 'bee';
   const aliases = aliasesFor(length);
   const finished = result !== 'playing';
   // A round follows the setting until its first guess, then keeps that mode.
@@ -554,7 +557,7 @@ function GameView() {
         <div className="header-actions">
           <LanguageSwitcher />
           <PlayerTools
-            game={shiritori || double ? null : game}
+            game={shiritori || double || bee ? null : game}
             day={day}
             busy={revealing >= 0}
             practiceLength={practiceLength}
@@ -608,6 +611,8 @@ function GameView() {
         <TabsContent value={mode} className="game-panel">
           {shiritori ? (
             <Shiritori picker={playPicker} onTyping={setTyping} />
+          ) : bee ? (
+            <Bee picker={playPicker} onTyping={setTyping} day={day} />
           ) : double ? (
             <Double
               picker={playPicker}
@@ -1031,6 +1036,11 @@ function GameView() {
               )}
             </p>
             <h3>{t('あそび')}</h3>
+            <p>
+              {t(
+                'かなビー：7つのかなで、よく使う言葉をできるだけ多く作ります。真ん中のかなは必ず使い、3文字以上。小さいかなは大きいかなで数え（しゃ→し・や）、「ー」はいつでも使えます。3文字は1点、それより長い言葉は文字数が点数、7つ全部を使うと7点追加。毎日0時に新しい問題になります。',
+              )}
+            </p>
             <p>
               {t(
                 'ダブル：2つの言葉を同時に当てます。回答は両方の盤面に入り、9回以内に両方を当てれば正解。キーは左右で、それぞれの盤面の結果を示します。ハードモードは使いません。',
