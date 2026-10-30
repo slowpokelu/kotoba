@@ -115,6 +115,7 @@ export function useKanaField(value: string, onValue: (next: string) => void) {
 // stays closed while tapping them.
 export function KanaKeyboard({
   keys = {},
+  split,
   disabled,
   finished = false,
   onInsert,
@@ -122,6 +123,8 @@ export function KanaKeyboard({
   onErase,
 }: {
   keys?: Record<string, Status>;
+  // ダブル: each key shows the left and right board as two halves.
+  split?: Record<string, [Status | null, Status | null]>;
   disabled: boolean;
   finished?: boolean;
   onInsert: (kana: string) => void;
@@ -160,14 +163,33 @@ export function KanaKeyboard({
               <button
                 type="button"
                 key={r + '-' + c}
-                className={'kana-key ' + (keys[k] || '')}
+                className={'kana-key ' + (split ? 'split' : keys[k] || '')}
+                data-left={split?.[k]?.[0] ?? undefined}
+                data-right={split?.[k]?.[1] ?? undefined}
                 disabled={disabled}
-                aria-label={k + (keys[k] ? '、' + t(labels[keys[k]]) : '')}
+                aria-label={
+                  k +
+                  (split?.[k]
+                    ? split[k]
+                        .map(
+                          (s, i) =>
+                            '、' +
+                            t(i ? '右' : '左') +
+                            '：' +
+                            (s ? t(labels[s]) : t('未判定')),
+                        )
+                        .join('')
+                    : keys[k]
+                      ? '、' + t(labels[keys[k]])
+                      : '')
+                }
                 onPointerDown={keep}
                 onClick={() => onInsert(k)}
               >
                 {k}
-                {keys[k] && <small aria-hidden="true">{marks[keys[k]]}</small>}
+                {!split && keys[k] && (
+                  <small aria-hidden="true">{marks[keys[k]]}</small>
+                )}
               </button>
             ),
           ),

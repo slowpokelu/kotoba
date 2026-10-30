@@ -910,9 +910,14 @@ await settle();
 const sneaky = JSON.parse(localStorage.getItem('kotoba:v1:absurd'));
 assert.deepEqual(sneaky.guesses, ['かいしゃ']);
 assert.notEqual(sneaky.answer, 'かいしゃ', 'the answer dodges');
-await act(async () =>
-  document.querySelector('[role="radio"][aria-label="Shiritori"]').click(),
-);
+const choosePlay = async (value) => {
+  const select = document.querySelector('.play-picker select');
+  await act(async () => {
+    select.value = value;
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+};
+await choosePlay('shiritori');
 const { tailKana } = await import('../lib/shiritori.mjs');
 const chainState = () =>
   JSON.parse(localStorage.getItem('kotoba:v1:shiritori'));
@@ -953,6 +958,44 @@ await click('Modes');
 assert.ok(
   document.querySelector('.shiritori .result-card'),
   'しりとり and its result survive a reload',
+);
+// ダブル: every guess lands on both boards; keys show both halves.
+await choosePlay('double');
+assert.equal(document.querySelectorAll('.double-boards .board').length, 2);
+assert.equal(
+  document
+    .querySelectorAll('.double-boards .board')[0]
+    .querySelectorAll('.guess-row').length,
+  9,
+  'ダブル has nine rows',
+);
+localStorage.setItem('kotoba:hard', '1');
+const doubleState = () => JSON.parse(localStorage.getItem('kotoba:v1:double'));
+await type('かいしゃ');
+await submit();
+await settle();
+assert.deepEqual(doubleState().guesses, ['かいしゃ']);
+for (const board of document.querySelectorAll('.double-boards .board'))
+  assert.equal(
+    board.querySelectorAll('.guess-row')[0].textContent.replace(/[✓●−]/g, ''),
+    'かいしゃ',
+    'the guess shows on both boards',
+  );
+assert.ok(
+  document.querySelector('.kana-key.split[data-left][data-right]'),
+  'tried keys show both boards',
+);
+await type('しんぶん');
+await submit();
+await settle();
+assert.equal(doubleState().guesses.length, 2, 'hard mode does not apply');
+await unmount();
+await mount();
+await click('Modes');
+assert.equal(
+  document.querySelectorAll('.double-boards .guess-row .tile.filled').length,
+  16,
+  'ダブル survives a reload',
 );
 await unmount();
 URL.createObjectURL = oldURL;

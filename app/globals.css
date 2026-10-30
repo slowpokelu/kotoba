@@ -1126,7 +1126,7 @@ a {
   .keyboard
   button:not(.correct):not(.present):not(.absent):not(.near-correct):not(
     .near-present
-  ),
+  ):not(.split),
 [data-theme='dark'] .keyboard-tools button {
   background: #223149;
   border-color: #43536e;
@@ -1137,7 +1137,7 @@ a {
   .keyboard
   button:not(.correct):not(.present):not(.absent):not(.near-correct):not(
     .near-present
-  ):hover,
+  ):not(.split):hover,
 [data-theme='dark'] .keyboard-tools button:hover:not(:disabled),
 [data-theme='dark'] .icon-button:hover,
 [data-theme='dark'] .secondary-button:hover {
@@ -1400,7 +1400,8 @@ a {
     height: var(--tile-h);
     width: min(
       var(--tile-h) * 1.45,
-      (100cqw - 56px - (var(--cols) - 1) * 5px) / var(--cols)
+      (100cqw - var(--number-space, 56px) - (var(--cols) - 1) * 5px) /
+        var(--cols)
     );
     font-size: calc(var(--tile-h) * 0.62);
     border-radius: 6px;
@@ -1794,4 +1795,153 @@ a {
 /* A filled button's ring is lighter, so it reads as a ring, not a border. */
 .primary-button:focus-visible {
   outline-color: #9db2ee;
+}
+
+/* The あそび picker: a compact dropdown chip. 16px on phones avoids the iOS
+   zoom on focus. */
+.play-picker {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.play-picker select {
+  appearance: none;
+  padding: 5px 30px 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--background);
+  color: var(--foreground);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.play-picker select:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.play-picker svg {
+  position: absolute;
+  right: 10px;
+  pointer-events: none;
+  color: var(--muted-foreground);
+}
+@media (max-width: 760px) {
+  .play-picker select {
+    font-size: 16px;
+    padding: 1px 30px 1px 12px;
+  }
+}
+/* ダブル: two boards side by side, without row numbers. */
+.double-boards {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+}
+.double-boards .board {
+  --number-space: 0px;
+  --min-tile: 20px;
+  margin: 0;
+}
+.guess-row.spent .tile {
+  opacity: 0.35;
+}
+@media (min-width: 761px) {
+  .double-boards .board,
+  .double-boards .guess-row {
+    gap: 4px;
+  }
+  .double-boards .tile,
+  .double-boards .board .tile {
+    width: 40px;
+    height: 40px;
+    font-size: 22px;
+  }
+}
+@media (max-width: 760px) {
+  .double-boards {
+    flex: 1;
+    min-height: 0;
+    gap: 10px;
+  }
+  .double-boards .board {
+    flex: 1 1 0;
+    width: auto;
+    min-width: 0;
+  }
+}
+/* Split keys: the left half is the left board, the right half the right. */
+.kana-key.split {
+  --left: #fff;
+  --right: #fff;
+  background: linear-gradient(90deg, var(--left) 50%, var(--right) 50%);
+}
+.kana-key.split[data-left='correct'] {
+  --left: #2b50bf;
+}
+.kana-key.split[data-right='correct'] {
+  --right: #2b50bf;
+}
+.kana-key.split[data-left='present'] {
+  --left: #efbc4d;
+}
+.kana-key.split[data-right='present'] {
+  --right: #efbc4d;
+}
+.kana-key.split[data-left='near-correct'] {
+  --left: #c9d4f6;
+}
+.kana-key.split[data-right='near-correct'] {
+  --right: #c9d4f6;
+}
+.kana-key.split[data-left='near-present'] {
+  --left: #f6e2b0;
+}
+.kana-key.split[data-right='near-present'] {
+  --right: #f6e2b0;
+}
+.kana-key.split[data-left='absent'] {
+  --left: #dbe1eb;
+}
+.kana-key.split[data-right='absent'] {
+  --right: #dbe1eb;
+}
+.kana-key.split[data-left][data-right] {
+  text-shadow:
+    0 0 3px #fff,
+    0 0 1px #fff;
+}
+[data-theme='dark'] .kana-key.split:not([data-left]) {
+  --left: #223149;
+}
+[data-theme='dark'] .kana-key.split:not([data-right]) {
+  --right: #223149;
+}
+[data-theme='dark'] .kana-key.split {
+  border-color: #43536e;
+  color: #e3eaf7;
+  box-shadow: 0 2px 0 #080e18;
+}
+[data-theme='dark'] .kana-key.split[data-left='absent'] {
+  --left: #303b4c;
+}
+[data-theme='dark'] .kana-key.split[data-right='absent'] {
+  --right: #303b4c;
+}
+[data-theme='dark'] .kana-key.split[data-left='near-correct'] {
+  --left: #1f2f5c;
+}
+[data-theme='dark'] .kana-key.split[data-right='near-correct'] {
+  --right: #1f2f5c;
+}
+[data-theme='dark'] .kana-key.split[data-left='near-present'] {
+  --left: #3b3016;
+}
+[data-theme='dark'] .kana-key.split[data-right='near-present'] {
+  --right: #3b3016;
+}
+[data-theme='dark'] .kana-key.split[data-left][data-right] {
+  text-shadow:
+    0 0 3px #000,
+    0 0 1px #000;
 }

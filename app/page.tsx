@@ -10,6 +10,7 @@ import {
   RotateCcw,
   X,
   ExternalLink,
+  ChevronDown,
   Share2,
 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -25,6 +26,8 @@ import { answers } from '@/lib/answers.mjs';
 import { convertRomaji, previewKana } from '@/lib/kana-input.mjs';
 import { KanaKeyboard, useKanaField } from './kana-input';
 import { Shiritori } from './shiritori';
+import { Double } from './double';
+import { englishShare, sendResult, useCanShare } from './share';
 import { PlayerTools } from './player-tools';
 import { LanguageProvider, LanguageSwitcher, useLanguage } from './language';
 import {
@@ -72,7 +75,13 @@ import { gameKey } from '@/lib/profile.mjs';
 import type { Game, Status } from '@/lib/types';
 
 type Mode = 'daily' | 'practice' | 'play';
-type PlayMode = 'absurd' | 'shiritori';
+type PlayMode = 'absurd' | 'shiritori' | 'double';
+const PLAY_MODES: PlayMode[] = ['absurd', 'double', 'shiritori'];
+const PLAY_LABELS = {
+  absurd: 'いじわる',
+  double: 'ダブル',
+  shiritori: 'しりとり',
+};
 // いじわる picks from the everyday four-kana words.
 const absurdPool = answersFor(4).map((a) => a.reading);
 function loadGame(fallback: Game) {
@@ -144,7 +153,7 @@ function GameView() {
   const [quiet, setQuiet] = useState(false);
   // Bumped on every refused guess to replay the row's shake.
   const [shake, setShake] = useState(0);
-  const [canShare, setCanShare] = useState(false);
+  const canShare = useCanShare();
   // The winning row hops once, right after its reveal.
   const [celebrate, setCelebrate] = useState(false);
   const againButton = useRef<HTMLButtonElement>(null);
@@ -191,13 +200,6 @@ function GameView() {
       window.scrollTo(0, 0);
     };
   }, [typing]);
-  // Phones share through the system sheet; computers copy.
-  useEffect(() => {
-    setCanShare(
-      typeof navigator.share === 'function' &&
-        window.matchMedia('(pointer: coarse)').matches,
-    );
-  }, []);
   // On a computer, typing anywhere goes into the field.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -235,8 +237,8 @@ function GameView() {
       setPracticeLength(savedPracticeLength(localStorage));
       setHintSetting(localStorage.getItem(HINTS_KEY) === '1');
       setHardSetting(localStorage.getItem(HARD_KEY) === '1');
-      if (localStorage.getItem(PLAY_MODE_KEY) === 'shiritori')
-        setPlayMode('shiritori');
+      const savedPlay = localStorage.getItem(PLAY_MODE_KEY) as PlayMode;
+      if (PLAY_MODES.includes(savedPlay)) setPlayMode(savedPlay);
     } catch {
       /* Use four kana if browser storage is unavailable. */
     }
@@ -286,6 +288,7 @@ function GameView() {
   // いじわる adds rows as needed beyond the usual eight, and scrolls to them.
   const rows = absurd ? Math.max(LIMIT, turn) : limit;
   const shiritori = mode === 'play' && playMode === 'shiritori';
+  const double = mode === 'play' && playMode === 'double';
   const aliases = aliasesFor(length);
   const finished = result !== 'playing';
   // A round follows the setting until its first guess, then keeps that mode.
@@ -508,56 +511,35 @@ function GameView() {
     if (!game) return;
     const text =
       language === 'en'
-        ? shareText(game, day)
-            .replace('ことば', 'Kotoba')
-            .replace('練習', 'Practice')
-            .replace('[ハード]', '[Hard]')
-            .replace('[ヒント]', '[Hints]')
-            .replace(/(\d)文字/, '$1 kana')
+        ? englishShare(shareText(game, day))
         : shareText(game, day);
-    if (canShare)
-      try {
-        await navigator.share({ text });
-        return;
-      } catch (e) {
-        if ((e as Error).name === 'AbortError') return;
-        // Any other failure falls back to copying.
-      }
-    try {
-      await navigator.clipboard.writeText(text);
+    const sent = await sendResult(text, canShare);
+    if (sent === 'copied') {
       setCopyFallback('');
       say('結果をコピーしました。');
-    } catch {
+    } else if (sent === 'failed') {
       setCopyFallback(text);
       say('下の結果を選択してコピーできます。');
     }
   }
 
+  // A compact dropdown, so the heading row fits any number of modes.
   const playPicker = (
-    <RadioGroup
-      className="length-options play-options"
-      aria-label={t('あそび')}
-      value={playMode}
-      onValueChange={choosePlayMode}
-      disabled={revealing >= 0}
-    >
-      {(['absurd', 'shiritori'] as const).map((m) => (
-        <label
-          className="length-choice play-choice"
-          key={m}
-          onPointerDown={(e) => e.preventDefault()}
-        >
-          <RadioGroupItem
-            value={m}
-            aria-label={t(m === 'absurd' ? 'いじわる' : 'しりとり')}
-            className="length-radio"
-          />
-          <span aria-hidden="true">
-            {t(m === 'absurd' ? 'いじわる' : 'しりとり')}
-          </span>
-        </label>
-      ))}
-    </RadioGroup>
+    <label className="play-picker">
+      <span className="sr-only">{t('あそび')}</span>
+      <select
+        value={playMode}
+        onChange={(e) => choosePlayMode(e.currentTarget.value)}
+        disabled={revealing >= 0}
+      >
+        {PLAY_MODES.map((m) => (
+          <option key={m} value={m}>
+            {t(PLAY_LABELS[m])}
+          </option>
+        ))}
+      </select>
+      <ChevronDown size={15} aria-hidden="true" />
+    </label>
   );
 
   return (
@@ -572,7 +554,7 @@ function GameView() {
         <div className="header-actions">
           <LanguageSwitcher />
           <PlayerTools
-            game={shiritori ? null : game}
+            game={shiritori || double ? null : game}
             day={day}
             busy={revealing >= 0}
             practiceLength={practiceLength}
@@ -626,6 +608,12 @@ function GameView() {
         <TabsContent value={mode} className="game-panel">
           {shiritori ? (
             <Shiritori picker={playPicker} onTyping={setTyping} />
+          ) : double ? (
+            <Double
+              picker={playPicker}
+              onTyping={setTyping}
+              hintSetting={hintSetting}
+            />
           ) : (
             <section
               className="play-area"
@@ -1043,6 +1031,11 @@ function GameView() {
               )}
             </p>
             <h3>{t('あそび')}</h3>
+            <p>
+              {t(
+                'ダブル：2つの言葉を同時に当てます。回答は両方の盤面に入り、9回以内に両方を当てれば正解。キーは左右で、それぞれの盤面の結果を示します。ハードモードは使いません。',
+              )}
+            </p>
             <p>
               {t(
                 'いじわる：回答するたびに、それまでの結果と矛盾しない別の言葉へ答えが逃げていく4文字のパズル。回数制限はなし。何手で追い詰められるか挑戦します。',
