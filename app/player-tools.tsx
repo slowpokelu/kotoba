@@ -26,6 +26,8 @@ import {
   gameKey,
   readGames,
   dailyStats,
+  extraEntries,
+  mergeExtra,
   parseBackup,
   mergeGames,
 } from '@/lib/profile.mjs';
@@ -101,6 +103,7 @@ type Backup = {
   hints?: boolean;
   hard?: boolean;
   games: Game[];
+  extra?: Record<string, string>;
 };
 
 export function PlayerTools({
@@ -190,6 +193,7 @@ export function PlayerTools({
         hints,
         hard,
         games,
+        extra: extraEntries(localStorage),
       };
       const url = URL.createObjectURL(
         new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }),
@@ -245,6 +249,12 @@ export function PlayerTools({
         writes.push([HINTS_KEY, pending.hints ? '1' : '0']);
       if (pending.hard !== undefined)
         writes.push([HARD_KEY, pending.hard ? '1' : '0']);
+      writes.push(
+        ...(mergeExtra(localStorage, pending.extra ?? {}) as [
+          string,
+          string,
+        ][]),
+      );
       for (const [key, value] of writes) {
         const old = localStorage.getItem(key);
         if (old === value) continue;
