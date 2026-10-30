@@ -63,6 +63,8 @@ import {
   labels,
   marks,
   HINTS_KEY,
+  HARD_KEY,
+  hardModeError,
 } from '@/lib/game.mjs';
 
 type Game = {
@@ -73,6 +75,7 @@ type Game = {
   draft: string;
   gaveUp?: boolean;
   hints?: boolean;
+  hard?: boolean;
 };
 type Mode = 'daily' | 'practice';
 type Status =
@@ -127,6 +130,7 @@ function GameView() {
   const [mode, setMode] = useState<Mode>('daily');
   const [practiceLength, setPracticeLength] = useState(4);
   const [hintSetting, setHintSetting] = useState(false);
+  const [hardSetting, setHardSetting] = useState(false);
   const [day, setDay] = useState('');
   const [game, setGame] = useState<Game | null>(null);
   const [message, setMessage] = useState('');
@@ -167,6 +171,29 @@ function GameView() {
     media.addEventListener('change', update);
     return () => media.removeEventListener('change', update);
   }, []);
+  // iOS Safari lays its keyboard over the page instead of resizing it, then
+  // scrolls the page to reveal the field. While a phone types in the field,
+  // size the layout to the area left above the keyboard instead.
+  const [typing, setTyping] = useState(false);
+  useEffect(() => {
+    if (!typing) return;
+    const viewport = window.visualViewport;
+    const root = document.documentElement;
+    const fit = () => {
+      root.style.setProperty(
+        '--visible-height',
+        (viewport?.height ?? window.innerHeight) + 'px',
+      );
+      window.scrollTo(0, 0);
+    };
+    fit();
+    viewport?.addEventListener('resize', fit);
+    return () => {
+      viewport?.removeEventListener('resize', fit);
+      root.style.removeProperty('--visible-height');
+      window.scrollTo(0, 0);
+    };
+  }, [typing]);
   const currentDay = useRef('');
   const modeRef = useRef(mode);
   useEffect(() => {
@@ -180,6 +207,7 @@ function GameView() {
     try {
       setPracticeLength(savedPracticeLength(localStorage));
       setHintSetting(localStorage.getItem(HINTS_KEY) === '1');
+      setHardSetting(localStorage.getItem(HARD_KEY) === '1');
     } catch {
       /* Use four kana if browser storage is unavailable. */
     }
@@ -227,6 +255,7 @@ function GameView() {
   const finished = result !== 'playing';
   // A round follows the setting until its first guess, then keeps that mode.
   const showHints = game?.guesses.length ? !!game.hints : hintSetting;
+  const showHard = game?.guesses.length ? !!game.hard : hardSetting;
   const keys = (
     game ? keyboardStates(game.guesses, game.answer, game.hints) : {}
   ) as Record<string, Status>;
@@ -374,10 +403,16 @@ function GameView() {
       return;
     }
     const guess = checked.guess!;
+    const rule = current.hard ? hardModeError(guess, current) : null;
+    if (rule) {
+      say(rule, true);
+      return;
+    }
     busy.current = true;
     const next = {
       ...current,
       ...(current.guesses.length === 0 && hintSetting ? { hints: true } : {}),
+      ...(current.guesses.length === 0 && hardSetting ? { hard: true } : {}),
       guesses: [...current.guesses, guess],
       draft: '',
     };
@@ -427,7 +462,7 @@ function GameView() {
   }
 
   return (
-    <main className="shell">
+    <main className={'shell' + (typing ? ' typing' : '')}>
       <header className="masthead">
         <h1>
           ことば
@@ -443,6 +478,15 @@ function GameView() {
             busy={revealing >= 0}
             practiceLength={practiceLength}
             hints={hintSetting}
+            hard={hardSetting}
+            onHardChange={(value) => {
+              setHardSetting(value);
+              try {
+                localStorage.setItem(HARD_KEY, value ? '1' : '0');
+              } catch {
+                setStorageWarning(true);
+              }
+            }}
             onHintsChange={(value) => {
               setHintSetting(value);
               try {
@@ -455,6 +499,7 @@ function GameView() {
               if (!game || busy.current) return;
               const nextLength = savedPracticeLength(localStorage);
               setHintSetting(localStorage.getItem(HINTS_KEY) === '1');
+              setHardSetting(localStorage.getItem(HARD_KEY) === '1');
               setPracticeLength(nextLength);
               const restored = loadGame(
                 mode === 'daily'
@@ -517,6 +562,7 @@ function GameView() {
                   <h2>{day ? day.replaceAll('-', ' / ') : t('今日の一問')}</h2>
                 )}
                 <span>
+                  {showHard && <b className="hard-badge">{t('ハード')}</b>}
                   {game
                     ? Math.min(game.guesses.length + (finished ? 0 : 1), LIMIT)
                     : 1}{' '}
@@ -742,7 +788,13 @@ function GameView() {
                         )
                           e.preventDefault();
                       }}
+                      onFocus={() =>
+                        setTyping(
+                          window.matchMedia('(pointer: coarse)').matches,
+                        )
+                      }
                       onBlur={() => {
+                        setTyping(false);
                         if (
                           game &&
                           !composing.current &&
@@ -938,6 +990,12 @@ function GameView() {
             <p>
               {t(
                 '設定でオンにすると、濁点・半濁点・大小だけが違うかなを枠線で示します。青い枠と✓は同じ位置、黄色い枠と●は別の位置。「き」に対して「ぎ」、「つ」に対して「っ」や「づ」などです。モードは各問題の最初の回答で決まります。',
+              )}
+            </p>
+            <h3>{t('ハードモード')}</h3>
+            <p>
+              {t(
+                '設定でオンにすると、✓のかなは同じ位置のまま、●のかなはその後の回答でも必ず使います。モードは各問題の最初の回答で決まります。',
               )}
             </p>
             <h3>{t('かなの数え方')}</h3>

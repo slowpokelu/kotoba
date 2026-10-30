@@ -48,6 +48,7 @@ window.matchMedia = (query) => ({
   removeEventListener() {},
 });
 HTMLElement.prototype.scrollIntoView = function () {};
+window.scrollTo = () => {};
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const React = await import('react');
 const { act } = React;
@@ -707,7 +708,11 @@ assert.ok(
   document.activeElement !== inputField(),
   'touch submit keeps the phone keyboard closed',
 );
-inputField().focus();
+await act(async () => inputField().focus());
+assert.ok(
+  document.querySelector('.shell').classList.contains('typing'),
+  'typing on a phone fits the layout above its keyboard',
+);
 await type('しんぶん');
 await act(async () => submitButton().click());
 await settle();
@@ -715,6 +720,11 @@ sameNode(
   document.activeElement,
   inputField(),
   'touch submit keeps typing focus when the field had it',
+);
+await act(async () => inputField().blur());
+assert.ok(
+  !document.querySelector('.shell').classList.contains('typing'),
+  'closing the phone keyboard restores the layout',
 );
 coarsePointer = false;
 // Near hints are off by default and locked into a round at its first guess.
@@ -795,6 +805,43 @@ assert.equal(
   undefined,
   'rounds started with hints off stay off',
 );
+// Hard mode: ✓ kana stay in place and ● kana are reused, from the round's
+// first guess on. A rule-breaking guess is refused without using a turn.
+await unmount();
+localStorage.clear();
+await mount();
+const { hardModeError } = await import('../lib/game.mjs');
+await click('Settings');
+await act(async () =>
+  document.querySelector('[aria-labelledby="hard-heading"]').click(),
+);
+assert.equal(localStorage.getItem('kotoba:hard'), '1');
+await click('Close');
+const hardAnswer = saved().answer;
+const fours = [...allValid].filter(
+  (w) => Array.from(w).length === 4 && w !== hardAnswer,
+);
+const opener = fours.find((w) => score(w, hardAnswer).includes('correct'));
+const round1 = { answer: hardAnswer, guesses: [opener] };
+const breaker = fours.find((w) => w !== opener && hardModeError(w, round1));
+const keeper = fours.find((w) => w !== opener && !hardModeError(w, round1));
+assert.ok(opener && breaker && keeper, 'the dictionary has test guesses');
+await type(opener);
+await submit();
+await settle();
+assert.equal(saved().hard, true, 'the first guess locks hard mode in');
+assert.ok(document.querySelector('.hard-badge'), 'the board shows hard mode');
+await type(breaker);
+await submit();
+assert.ok(
+  document.querySelector('.status.error').textContent.match(/must|Use/),
+  'a rule-breaking guess explains the rule',
+);
+assert.equal(saved().guesses.length, 1, 'a refused guess uses no turn');
+await type(keeper);
+await submit();
+await settle();
+assert.equal(saved().guesses.length, 2, 'a legal guess is accepted');
 await unmount();
 URL.createObjectURL = oldURL;
 URL.revokeObjectURL = oldRevoke;

@@ -1615,6 +1615,28 @@ a {
     display: none;
   }
 }
+/* Typing on a phone: the layout fills only the area above the keyboard
+   (--visible-height comes from visualViewport), so nothing gets scrolled away.
+   The header and tabs step aside and the board shrinks further. */
+@media (max-width: 760px) {
+  .shell.typing {
+    height: var(--visible-height, 100dvh);
+    min-height: 0;
+    overflow: hidden;
+    padding-bottom: 6px;
+  }
+  .shell.typing .masthead,
+  .shell.typing .game-tabs > .mode-list,
+  .shell.typing .legend {
+    display: none;
+  }
+  .shell.typing .board-column .game-heading {
+    margin-top: 6px;
+  }
+  .shell.typing .board {
+    min-height: calc(8 * 16px + 7 * var(--gap));
+  }
+}
 @media (max-width: 760px) {
   [data-theme='dark'] .keyboard-heading .text-button {
     border-color: #43536e;
@@ -1622,4 +1644,18 @@ a {
     color: #e3eaf7;
     box-shadow: 0 2px 0 #080e18;
   }
+}
+.hard-badge {
+  margin-right: 8px;
+  padding: 1px 6px;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #b42332;
+  vertical-align: 1px;
+}
+[data-theme='dark'] .hard-badge {
+  color: #ff8f9a;
 }

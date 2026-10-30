@@ -25,6 +25,7 @@ import {
   localDay,
   outcome,
   HINTS_KEY,
+  HARD_KEY,
   PRACTICE_LENGTH_KEY,
 } from '@/lib/game.mjs';
 import { useLanguage } from './language';
@@ -37,6 +38,7 @@ type Game = {
   draft: string;
   gaveUp?: boolean;
   hints?: boolean;
+  hard?: boolean;
 };
 type Backup = {
   app: string;
@@ -45,6 +47,7 @@ type Backup = {
   language?: string;
   practiceLength?: number;
   hints?: boolean;
+  hard?: boolean;
   games: Game[];
 };
 
@@ -55,6 +58,8 @@ export function PlayerTools({
   practiceLength,
   hints,
   onHintsChange,
+  hard,
+  onHardChange,
   onImport,
 }: {
   game: Game | null;
@@ -63,6 +68,8 @@ export function PlayerTools({
   practiceLength: number;
   hints: boolean;
   onHintsChange: (value: boolean) => void;
+  hard: boolean;
+  onHardChange: (value: boolean) => void;
   onImport: () => void;
 }) {
   const { language, setLanguage, t } = useLanguage();
@@ -125,6 +132,7 @@ export function PlayerTools({
         language,
         practiceLength,
         hints,
+        hard,
         games,
       };
       const url = URL.createObjectURL(
@@ -179,6 +187,8 @@ export function PlayerTools({
         writes.push([PRACTICE_LENGTH_KEY, String(pending.practiceLength)]);
       if (pending.hints !== undefined)
         writes.push([HINTS_KEY, pending.hints ? '1' : '0']);
+      if (pending.hard !== undefined)
+        writes.push([HARD_KEY, pending.hard ? '1' : '0']);
       for (const [key, value] of writes) {
         const old = localStorage.getItem(key);
         if (old === value) continue;
@@ -354,6 +364,31 @@ export function PlayerTools({
                   game.guesses.length > 0 &&
                   outcome(game) === 'playing' &&
                   !!game.hints !== hints && (
+                    <p className="panel-note">
+                      {t(
+                        '回答を始めた問題はそのまま。次の問題から切り替わります。',
+                      )}
+                    </p>
+                  )}
+              </section>
+              <section className="settings-section">
+                <h3 id="hard-heading">{t('ハードモード')}</h3>
+                <label className="switch-row">
+                  <span>
+                    {t(
+                      '✓のかなは同じ位置のまま、●のかなはその後の回答でも必ず使います。',
+                    )}
+                  </span>
+                  <Switch
+                    checked={hard}
+                    onCheckedChange={(value) => onHardChange(value)}
+                    aria-labelledby="hard-heading"
+                  />
+                </label>
+                {game &&
+                  game.guesses.length > 0 &&
+                  outcome(game) === 'playing' &&
+                  !!game.hard !== hard && (
                     <p className="panel-note">
                       {t(
                         '回答を始めた問題はそのまま。次の問題から切り替わります。',
