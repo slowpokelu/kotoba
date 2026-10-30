@@ -105,7 +105,6 @@ input:focus-visible {
   margin-bottom: 20px;
 }
 .game-heading h2 {
-  font-size: 18px;
   margin: 0;
 }
 .game-heading > span {
@@ -154,16 +153,12 @@ a.guess-row {
   box-shadow: 0 2px 3px #17284908;
 }
 .status {
-  min-height: 24px;
   text-align: center;
-  font-size: 14px;
   color: var(--muted-foreground);
-  margin: 18px 0;
 }
 .keyboard {
   display: grid;
   grid-template-columns: repeat(10, minmax(0, 1fr));
-  gap: 5px;
 }
 .keyboard button {
   border: 1px solid #ccd5e3;
@@ -197,14 +192,6 @@ a {
   align-items: center;
   gap: 8px;
 }
-.header-actions .subtitle {
-  margin-right: 16px;
-}
-.subtitle {
-  color: var(--muted-foreground);
-  font-size: 14px;
-  letter-spacing: 0.12em;
-}
 .icon-button {
   border: 1px solid var(--border);
   border-radius: 50%;
@@ -218,10 +205,6 @@ a {
 .icon-button:hover {
   background: white;
   border-color: #8295bb;
-}
-.mode-tabs {
-  align-items: center;
-  margin: 24px 0 30px;
 }
 .mode-list[data-slot] {
   height: 44px;
@@ -831,20 +814,12 @@ a {
   .masthead {
     height: 104px;
   }
-  .mode-tabs {
-    margin: 28px 0 38px;
-  }
 }
 @media (max-width: 760px) {
   .shell {
     max-width: 510px;
-    padding: 0 16px 20px;
-  }
-  .masthead {
-    height: 70px;
   }
   .masthead h1 {
-    font-size: 27px;
     gap: 10px;
   }
   .seal {
@@ -852,49 +827,22 @@ a {
     height: 28px;
     font-size: 16px;
   }
-  .subtitle {
-    display: none;
-  }
   .icon-button {
     width: 38px;
     height: 38px;
-  }
-  .mode-tabs {
-    margin: 16px 0 17px;
-  }
-  .mode-list[data-slot] {
-    height: 40px;
-  }
-  .mode-list [data-slot='tabs-trigger'] {
-    min-height: 32px;
-    padding: 5px 30px;
-  }
-  .play-area {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    padding: 0 0 20px;
   }
   .board-column,
   .control-column {
     width: 100%;
   }
   .board-column .game-heading {
-    max-width: 234px;
     margin-bottom: 10px;
-  }
-  .board-column .game-heading:has(.length-picker) {
-    max-width: 292px;
-  }
-  .board {
-    gap: 4px;
   }
   .guess-row {
     gap: 5px;
   }
   .board .tile {
     width: 53px;
-    height: 40px;
     font-size: 25px;
     border-radius: 5px;
   }
@@ -926,27 +874,18 @@ a {
     font-size: 12px;
   }
   .guess-form input {
-    height: 44px;
-    font-size: 20px;
     padding: 6px 10px;
   }
   .submit-button {
     padding: 8px 12px;
   }
   .status {
-    min-height: 30px;
-    margin: 4px 0 6px;
     font-size: 13px;
   }
   .keyboard-heading {
     margin-bottom: 6px;
   }
-  .keyboard {
-    gap: 4px;
-  }
   .keyboard .kana-key {
-    height: 40px;
-    min-height: 40px;
     font-size: 18px;
   }
   .keyboard-tools {
@@ -957,9 +896,6 @@ a {
   }
   .shell > footer {
     padding-top: 12px;
-  }
-  .result-card {
-    padding: 16px;
   }
   .result-card h2 {
     font-size: 30px;
@@ -991,28 +927,11 @@ a {
   }
 }
 @media (max-height: 800px) and (max-width: 760px) {
-  .masthead {
-    height: 60px;
-  }
-  .mode-tabs {
-    margin: 12px 0;
-  }
-  .play-area {
-    gap: 14px;
-  }
   .board .tile {
-    height: 35px;
     font-size: 23px;
-  }
-  .board {
-    gap: 3px;
   }
   .legend {
     margin-top: 7px;
-  }
-  .keyboard .kana-key {
-    height: 36px;
-    min-height: 36px;
   }
   .keyboard-tools button {
     min-height: 38px;
@@ -1299,17 +1218,8 @@ a {
   width: 100%;
 }
 @media (max-width: 760px) {
-  .masthead {
-    height: 60px;
-  }
-  .game-tabs > .mode-list {
-    margin: 12px 0;
-  }
   .board .tile {
     height: 36px;
-  }
-  .play-area {
-    gap: 12px;
   }
   .input-heading {
     position: absolute;
@@ -1318,24 +1228,10 @@ a {
     overflow: hidden;
     clip: rect(0, 0, 0, 0);
   }
-  .keyboard .kana-key {
-    height: 36px;
-    min-height: 36px;
-  }
 }
 @media (min-width: 1000px) {
   .game-tabs > .mode-list {
     margin: 28px 0 38px;
-  }
-}
-@media (max-width: 760px) {
-  .game-tabs > .mode-list {
-    margin: 16px 0 17px;
-  }
-}
-@media (max-height: 800px) and (max-width: 760px) {
-  .game-tabs > .mode-list {
-    margin: 12px 0;
   }
 }
 @media (max-width: 520px) {
@@ -1373,7 +1269,6 @@ a {
   .shell {
     display: flex;
     flex-direction: column;
-    min-height: 100vh;
     min-height: 100dvh;
     padding: env(safe-area-inset-top) max(12px, env(safe-area-inset-right))
       max(8px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
@@ -1658,4 +1553,31 @@ a {
 }
 [data-theme='dark'] .hard-badge {
   color: #ff8f9a;
+}
+
+/* A refused guess shakes the row being typed. */
+.guess-row.shake {
+  animation: shake 320ms ease;
+}
+@keyframes shake {
+  20%,
+  60% {
+    transform: translateX(-5px);
+  }
+  40%,
+  80% {
+    transform: translateX(5px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .guess-row.shake {
+    animation: none;
+  }
+}
+/* Today's solve stands out in the distribution. */
+.distribution:has(.today) .distribution-row:not(.today) .stat-bar {
+  opacity: 0.55;
+}
+.distribution-row.today strong {
+  font-weight: 700;
 }

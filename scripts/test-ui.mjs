@@ -124,6 +124,21 @@ const saved = () =>
     ),
   );
 
+Object.defineProperty(navigator, 'languages', {
+  value: ['ja-JP', 'en'],
+  configurable: true,
+});
+await mount();
+assert.equal(
+  document.documentElement.lang,
+  'ja',
+  'a Japanese browser starts in Japanese',
+);
+await unmount();
+Object.defineProperty(navigator, 'languages', {
+  value: ['en-US'],
+  configurable: true,
+});
 await mount();
 assert.equal(document.documentElement.lang, 'en', 'English is the default');
 assert.equal(document.querySelector('#language-en').textContent.trim(), 'en');
@@ -287,7 +302,22 @@ sameNode(
   'button submission returns focus even for errors',
 );
 assert.ok(text().includes('その言葉はもう試しました'));
+assert.ok(
+  document.querySelector('.guess-row.shake .tile.current'),
+  'a refused guess shakes the row being typed',
+);
 assert.equal(saved().guesses.length, 1);
+await act(async () => guessField.blur());
+await act(async () =>
+  document.body.dispatchEvent(
+    new KeyboardEvent('keydown', { key: 'k', bubbles: true }),
+  ),
+);
+sameNode(
+  document.activeElement,
+  guessField,
+  'typing anywhere focuses the field',
+);
 await type('ひま');
 await unmount();
 finePointer = true;
@@ -351,6 +381,21 @@ assert.equal(
   document.querySelector('.result-card .eyebrow').textContent,
   '正解',
 );
+assert.ok(
+  document.querySelector('.status .sr-only').textContent.includes('正解'),
+  'the win is announced to screen readers only; the card shows it',
+);
+assert.match(
+  document.querySelector('.next-day time').textContent,
+  /^\d\d:\d\d:\d\d$/,
+  'the result shows a countdown to the next puzzle',
+);
+await click('成績');
+assert.ok(
+  document.querySelector('.distribution-row.today'),
+  "today's solve is highlighted",
+);
+await click('閉じる');
 const rowLinks = [...document.querySelectorAll('a.guess-row')].map((a) =>
   decodeURIComponent(a.href.replace('https://jisho.org/search/', '')),
 );

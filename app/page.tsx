@@ -13,6 +13,7 @@ import {
   Keyboard,
   X,
   ExternalLink,
+  Share2,
 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -66,24 +67,10 @@ import {
   HARD_KEY,
   hardModeError,
 } from '@/lib/game.mjs';
+import { gameKey } from '@/lib/profile.mjs';
+import type { Game, Status } from '@/lib/types';
 
-type Game = {
-  version: number;
-  id: string;
-  answer: string;
-  guesses: string[];
-  draft: string;
-  gaveUp?: boolean;
-  hints?: boolean;
-  hard?: boolean;
-};
 type Mode = 'daily' | 'practice';
-type Status =
-  | 'correct'
-  | 'present'
-  | 'near-correct'
-  | 'near-present'
-  | 'absent';
 const rows = [
   'あかさたなはまやらわ',
   'いきしちにひみ　りを',
@@ -98,11 +85,10 @@ const alternateRows = [
   'げぜでべぺぇ　　　　',
   'ごぞどぼぽぉょゎ　　',
 ];
-const storageKey = (id: string) => 'kotoba:v1:' + id;
 function loadGame(fallback: Game) {
   try {
     return restoreGame(
-      localStorage.getItem(storageKey(fallback.id)),
+      localStorage.getItem(gameKey(fallback.id)),
       fallback,
       valid,
       answerSet,
@@ -116,6 +102,29 @@ function pickPractice(length = 4, previous = '') {
   const number = new Uint32Array(1);
   crypto.getRandomValues(number);
   return choices[number[0] % choices.length].reading;
+}
+
+// Counts down to local midnight, when the next daily puzzle starts.
+function NextPuzzle() {
+  const { t } = useLanguage();
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const tick = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(tick);
+  }, []);
+  const midnight = new Date(now);
+  midnight.setHours(24, 0, 0, 0);
+  const left = Math.max(0, midnight.getTime() - now);
+  const time = [3600000, 60000, 1000]
+    .map((unit, i) =>
+      String(Math.floor(left / unit) % (i ? 60 : 24)).padStart(2, '0'),
+    )
+    .join(':');
+  return (
+    <p className="next-day">
+      {t('次の一問まで')} <time>{time}</time>
+    </p>
+  );
 }
 
 export default function Home() {
@@ -141,6 +150,12 @@ function GameView() {
   const [revealing, setRevealing] = useState(-1);
   const [copyFallback, setCopyFallback] = useState('');
   const [storageWarning, setStorageWarning] = useState(false);
+  // Finish announcements are for screen readers; the result card shows them.
+  const [quiet, setQuiet] = useState(false);
+  // Bumped on every refused guess to replay the row's shake.
+  const [shake, setShake] = useState(0);
+  const [canShare, setCanShare] = useState(false);
+  const againButton = useRef<HTMLButtonElement>(null);
   const field = useRef<HTMLInputElement>(null);
   const continueButton = useRef<HTMLButtonElement>(null);
   const selection = useRef<{ start: number; end: number } | null>(null);
@@ -194,6 +209,36 @@ function GameView() {
       window.scrollTo(0, 0);
     };
   }, [typing]);
+  // Phones share through the system sheet; computers copy.
+  useEffect(() => {
+    setCanShare(
+      typeof navigator.share === 'function' &&
+        window.matchMedia('(pointer: coarse)').matches,
+    );
+  }, []);
+  // On a computer, typing anywhere goes into the field.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const input = field.current;
+      const target = e.target as HTMLElement | null;
+      if (
+        !input ||
+        input.disabled ||
+        e.ctrlKey ||
+        e.metaKey ||
+        e.altKey ||
+        e.isComposing ||
+        target?.closest('input, textarea, select, [role="dialog"]') ||
+        (e.key === ' ' && target?.closest('button, a, [role="tab"]')) ||
+        (e.key.length !== 1 && e.key !== 'Backspace')
+      )
+        return;
+      input.focus({ preventScroll: true });
+      input.setSelectionRange(input.value.length, input.value.length);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
   const currentDay = useRef('');
   const modeRef = useRef(mode);
   useEffect(() => {
@@ -243,7 +288,7 @@ function GameView() {
   useEffect(() => {
     if (!game) return;
     try {
-      localStorage.setItem(storageKey(game.id), JSON.stringify(game));
+      localStorage.setItem(gameKey(game.id), JSON.stringify(game));
     } catch {
       setStorageWarning(true);
     }
@@ -265,9 +310,26 @@ function GameView() {
     ? allAnswers.find((a) => a.reading === game.answer)
     : null;
 
-  function say(text: string, isError = false) {
+  useEffect(() => {
+    if (
+      finished &&
+      revealing < 0 &&
+      window.matchMedia('(hover: hover) and (pointer: fine)').matches
+    )
+      againButton.current?.focus({ preventScroll: true });
+  }, [finished, revealing]);
+  function savePreference(key: string, value: string) {
+    try {
+      localStorage.setItem(key, value);
+    } catch {
+      setStorageWarning(true);
+    }
+  }
+  function say(text: string, isError = false, isQuiet = false) {
     setMessage(text);
     setError(isError);
+    setQuiet(isQuiet);
+    if (isError) setShake((n) => n + 1);
   }
   function edit(value: string) {
     const current = gameRef.current;
@@ -329,11 +391,7 @@ function GameView() {
     setGivingUp(false);
     setCopyFallback('');
     say('');
-    try {
-      localStorage.setItem(PRACTICE_LENGTH_KEY, String(next));
-    } catch {
-      setStorageWarning(true);
-    }
+    savePreference(PRACTICE_LENGTH_KEY, String(next));
   }
   function giveUp() {
     const current = gameRef.current;
@@ -342,7 +400,7 @@ function GameView() {
     gameRef.current = next;
     setGame(next);
     setGivingUp(false);
-    say('答えは「' + next.answer + '」でした。');
+    say('答えは「' + next.answer + '」でした。', false, true);
   }
   function insert(k: string) {
     if (!game || finished || busy.current) return;
@@ -425,8 +483,13 @@ function GameView() {
       setRevealing(-1);
       const state = outcome(next);
       if (state === 'won')
-        say('正解！ ' + next.guesses.length + '回で見つけました。');
-      else if (state === 'lost') say('答えは「' + next.answer + '」でした。');
+        say(
+          '正解！ ' + next.guesses.length + '回で見つけました。',
+          false,
+          true,
+        );
+      else if (state === 'lost')
+        say('答えは「' + next.answer + '」でした。', false, true);
       else
         say(
           guess +
@@ -452,6 +515,14 @@ function GameView() {
             .replace('[ヒント]', '[Hints]')
             .replace(/(\d)文字/, '$1 kana')
         : shareText(game, day);
+    if (canShare)
+      try {
+        await navigator.share({ text });
+        return;
+      } catch (e) {
+        if ((e as Error).name === 'AbortError') return;
+        // Any other failure falls back to copying.
+      }
     try {
       await navigator.clipboard.writeText(text);
       setCopyFallback('');
@@ -482,19 +553,11 @@ function GameView() {
             hard={hardSetting}
             onHardChange={(value) => {
               setHardSetting(value);
-              try {
-                localStorage.setItem(HARD_KEY, value ? '1' : '0');
-              } catch {
-                setStorageWarning(true);
-              }
+              savePreference(HARD_KEY, value ? '1' : '0');
             }}
             onHintsChange={(value) => {
               setHintSetting(value);
-              try {
-                localStorage.setItem(HINTS_KEY, value ? '1' : '0');
-              } catch {
-                setStorageWarning(true);
-              }
+              savePreference(HINTS_KEY, value ? '1' : '0');
             }}
             onImport={() => {
               if (!game || busy.current) return;
@@ -548,7 +611,11 @@ function GameView() {
                       disabled={revealing >= 0}
                     >
                       {PRACTICE_LENGTHS.map((n) => (
-                        <label className="length-choice" key={n}>
+                        <label
+                          className="length-choice"
+                          key={n}
+                          onPointerDown={(e) => e.preventDefault()}
+                        >
                           <RadioGroupItem
                             value={String(n)}
                             aria-label={t(`${n}文字`)}
@@ -641,7 +708,9 @@ function GameView() {
                     </>
                   );
                   const className =
-                    'guess-row ' + (revealing === r ? 'reveal' : '');
+                    'guess-row' +
+                    (revealing === r ? ' reveal' : '') +
+                    (active && error && shake ? ' shake' : '');
                   return lookup ? (
                     <a
                       className={className}
@@ -657,7 +726,11 @@ function GameView() {
                       {cells}
                     </a>
                   ) : (
-                    <div className={className} key={r} aria-label={t(label)}>
+                    <div
+                      className={className}
+                      key={active ? r + '-' + shake : r}
+                      aria-label={t(label)}
+                    >
                       {cells}
                     </div>
                   );
@@ -699,13 +772,17 @@ function GameView() {
                     </p>
                   )}
                   <div className="result-actions">
-                    <button className="primary-button" onClick={again}>
+                    <button
+                      className="primary-button"
+                      ref={againButton}
+                      onClick={again}
+                    >
                       <RotateCcw size={17} />
                       {t('もう一問')}
                     </button>
                     <button className="secondary-button" onClick={copy}>
-                      <Copy size={17} />
-                      {t('結果をコピー')}
+                      {canShare ? <Share2 size={17} /> : <Copy size={17} />}
+                      {canShare ? t('結果を共有') : t('結果をコピー')}
                     </button>
                   </div>
                   <a
@@ -720,11 +797,7 @@ function GameView() {
                     {t('辞書で見る')}
                     <ExternalLink size={14} />
                   </a>
-                  {mode === 'daily' && (
-                    <p className="next-day">
-                      {t('次の一問は、この端末の時刻で0時に。')}
-                    </p>
-                  )}
+                  {mode === 'daily' && <NextPuzzle />}
                   {copyFallback && (
                     <textarea
                       className="share-fallback"
@@ -824,6 +897,9 @@ function GameView() {
                   </form>
                   <button
                     className="text-button give-up"
+                    // Keep the field focused: closing the phone keyboard first
+                    // would move this button out from under the tap.
+                    onPointerDown={(e) => e.preventDefault()}
                     disabled={!game || revealing >= 0}
                     onClick={() => setGivingUp(true)}
                   >
@@ -837,7 +913,7 @@ function GameView() {
                 aria-atomic="true"
                 className={'status ' + (error ? 'error' : '')}
               >
-                {error || finished ? (
+                {error || (finished && !quiet) ? (
                   t(message)
                 ) : (
                   <>

@@ -14,6 +14,7 @@ import { Switch } from '@/components/ui/switch';
 import { allAnswers as answers, allValid as valid } from '@/lib/word-pools.mjs';
 import {
   THEME_KEY,
+  LANGUAGE_KEY,
   themes,
   gameKey,
   readGames,
@@ -29,17 +30,50 @@ import {
   PRACTICE_LENGTH_KEY,
 } from '@/lib/game.mjs';
 import { useLanguage } from './language';
+import type { Game } from '@/lib/types';
 
-type Game = {
-  version: number;
-  id: string;
-  answer: string;
-  guesses: string[];
-  draft: string;
-  gaveUp?: boolean;
-  hints?: boolean;
-  hard?: boolean;
-};
+// A switch for a per-round mode. A round keeps the mode it had at its first
+// guess, so a change mid-round applies from the next one.
+function ModeSetting({
+  field,
+  title,
+  description,
+  checked,
+  onChange,
+  game,
+}: {
+  field: 'hints' | 'hard';
+  title: string;
+  description: string;
+  checked: boolean;
+  onChange: (value: boolean) => void;
+  game: Game | null;
+}) {
+  const { t } = useLanguage();
+  const pending =
+    !!game &&
+    game.guesses.length > 0 &&
+    outcome(game) === 'playing' &&
+    !!game[field] !== checked;
+  return (
+    <section className="settings-section">
+      <h3 id={field + '-heading'}>{t(title)}</h3>
+      <label className="switch-row">
+        <span>{t(description)}</span>
+        <Switch
+          checked={checked}
+          onCheckedChange={(value) => onChange(value)}
+          aria-labelledby={field + '-heading'}
+        />
+      </label>
+      {pending && (
+        <p className="panel-note">
+          {t('回答を始めた問題はそのまま。次の問題から切り替わります。')}
+        </p>
+      )}
+    </section>
+  );
+}
 type Backup = {
   app: string;
   version: number;
@@ -182,7 +216,7 @@ export function PlayerTools({
         JSON.stringify(g),
       ]);
       writes.push([THEME_KEY, pending.theme]);
-      if (pending.language) writes.push(['kotoba:language', pending.language]);
+      if (pending.language) writes.push([LANGUAGE_KEY, pending.language]);
       if (pending.practiceLength)
         writes.push([PRACTICE_LENGTH_KEY, String(pending.practiceLength)]);
       if (pending.hints !== undefined)
@@ -219,6 +253,10 @@ export function PlayerTools({
     }
   }
   const stats = dailyStats(games, day || localDay());
+  // Highlight today's row when today's puzzle was solved.
+  const today = games.find((g) => g.id === 'daily:' + (day || localDay()));
+  const todayRow =
+    today && outcome(today) === 'won' ? today.guesses.length - 1 : -1;
   const maximum = Math.max(1, ...stats.distribution);
   const open = (value: 'stats' | 'settings') => {
     setNotice('');
@@ -295,7 +333,9 @@ export function PlayerTools({
                 <h3>{t('正解までの回答数')}</h3>
                 {stats.distribution.map((count: number, i: number) => (
                   <div
-                    className="distribution-row"
+                    className={
+                      'distribution-row' + (i === todayRow ? ' today' : '')
+                    }
                     key={i}
                     aria-label={t(`${i + 1}回で正解：${count}問`)}
                   >
@@ -348,59 +388,27 @@ export function PlayerTools({
                   ))}
                 </RadioGroup>
               </section>
-              <section className="settings-section">
-                <h3 id="hints-heading">{t('ヒント表示')}</h3>
-                <label className="switch-row">
-                  <span>
-                    {t('濁点・半濁点・大小だけが違うかなを、枠線で示します。')}
-                  </span>
-                  <Switch
-                    checked={hints}
-                    onCheckedChange={(value) => onHintsChange(value)}
-                    aria-labelledby="hints-heading"
-                  />
-                </label>
-                {game &&
-                  game.guesses.length > 0 &&
-                  outcome(game) === 'playing' &&
-                  !!game.hints !== hints && (
-                    <p className="panel-note">
-                      {t(
-                        '回答を始めた問題はそのまま。次の問題から切り替わります。',
-                      )}
-                    </p>
-                  )}
-              </section>
-              <section className="settings-section">
-                <h3 id="hard-heading">{t('ハードモード')}</h3>
-                <label className="switch-row">
-                  <span>
-                    {t(
-                      '答えになりうる言葉だけ回答できます。✓は同じ位置、●は別の位置で使い、−のかなは使えません。',
-                    )}
-                  </span>
-                  <Switch
-                    checked={hard}
-                    onCheckedChange={(value) => onHardChange(value)}
-                    aria-labelledby="hard-heading"
-                  />
-                </label>
-                {game &&
-                  game.guesses.length > 0 &&
-                  outcome(game) === 'playing' &&
-                  !!game.hard !== hard && (
-                    <p className="panel-note">
-                      {t(
-                        '回答を始めた問題はそのまま。次の問題から切り替わります。',
-                      )}
-                    </p>
-                  )}
-              </section>
+              <ModeSetting
+                field="hints"
+                title="ヒント表示"
+                description="濁点・半濁点・大小だけが違うかなを、枠線で示します。"
+                checked={hints}
+                onChange={onHintsChange}
+                game={game}
+              />
+              <ModeSetting
+                field="hard"
+                title="ハードモード"
+                description="答えになりうる言葉だけ回答できます。✓は同じ位置、●は別の位置で使い、−のかなは使えません。"
+                checked={hard}
+                onChange={onHardChange}
+                game={game}
+              />
               <section className="settings-section">
                 <h3>{t('記録のバックアップ')}</h3>
                 <p className="panel-note">
                   {t(
-                    '成績・途中のゲーム・テーマをJSONファイルに保存します。別の端末やサイトへの引っ越しにも使えます。アカウント登録は不要です。',
+                    '成績・途中のゲーム・設定をJSONファイルに保存します。別の端末やサイトへの引っ越しにも使えます。アカウント登録は不要です。',
                   )}
                 </p>
                 <div className="dialog-actions">
@@ -434,7 +442,7 @@ export function PlayerTools({
                     <p>
                       {pending.games.length}
                       {t(
-                        '件のゲームとテーマ設定を読み込みます。同じ日の終了済みの記録は、この端末のものを残します。',
+                        '件のゲームと設定を読み込みます。同じ日の終了済みの記録は、この端末のものを残します。',
                       )}
                     </p>
                     <div className="dialog-actions">

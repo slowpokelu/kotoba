@@ -2,6 +2,7 @@
 /* oxlint-disable react/react-compiler -- Restore the browser preference after hydration. */
 import { createContext, useContext, useEffect, useState } from 'react';
 import { translate } from '@/lib/translations.mjs';
+import { LANGUAGE_KEY } from '@/lib/profile.mjs';
 const LanguageContext = createContext({
   language: 'en',
   setLanguage: (_value: string) => {},
@@ -10,11 +11,19 @@ const LanguageContext = createContext({
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [language, setLanguage] = useState('en');
   useEffect(() => {
+    // A saved choice wins; otherwise follow the browser, so a Japanese phone
+    // starts in Japanese.
+    let saved = null;
     try {
-      if (localStorage.getItem('kotoba:language') === 'ja') setLanguage('ja');
+      saved = localStorage.getItem(LANGUAGE_KEY);
     } catch {
-      /* Keep English. */
+      /* Fall back to the browser language. */
     }
+    const browserJapanese = navigator.languages?.some((l) =>
+      l.toLowerCase().startsWith('ja'),
+    );
+    if (saved === 'ja' || (saved === null && browserJapanese))
+      setLanguage('ja');
   }, []);
   useEffect(() => {
     document.documentElement.lang = language;
@@ -40,7 +49,7 @@ export function LanguageSwitcher() {
     setLanguage(next);
     setNotice('');
     try {
-      localStorage.setItem('kotoba:language', next);
+      localStorage.setItem(LANGUAGE_KEY, next);
     } catch {
       setNotice('表示は変更しましたが、このブラウザには設定を保存できません。');
     }
