@@ -48,6 +48,8 @@ Romaji converts while you type; no Japanese keyboard is required. Incomplete syl
 
 ## Dictionary
 
-Accepted readings are derived from [JMdict / EDICT](https://www.edrdg.org/wiki/index.php/JMdict-EDICT_Dictionary_Project), © EDRDG, under [CC BY-SA 4.0](https://www.edrdg.org/edrdg/licence.html). The data is filtered and converted to three-to-six-kana readings. See `public/dictionary-license.txt` for attribution and the game’s help panel for details.
+Accepted readings are derived from [JMdict / EDICT](https://www.edrdg.org/wiki/index.php/JMdict-EDICT_Dictionary_Project), © EDRDG, under [CC BY-SA 4.0](https://www.edrdg.org/edrdg/licence.html). The data is filtered and converted to three-to-six-kana readings, plus a list of about 19,000 common words (two to eight kana) used by しりとり. See `public/dictionary-license.txt` for attribution and the game’s help panel for details.
 
 `node scripts/update-dictionary.mjs /path/to/edict2.gz --practice` regenerates only the additional 3/5/6-kana dictionary and verifies its curated reading/spelling pairs. Keep `lib/answers.mjs` in its original order to preserve the daily schedule.
+
+`node scripts/update-common-words.mjs /path/to/kotobako-static.json` regenerates `lib/common-words.json` from the [kotobako-data](https://www.npmjs.com/package/kotobako-data) package, a JMdict subset of common words with spellings and parts of speech (CC BY-SA 4.0).

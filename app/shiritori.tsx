@@ -24,8 +24,10 @@ import {
 } from '@/lib/shiritori.mjs';
 import {
   allAnswers,
-  allValid as valid,
+  allValid,
   aliasesFor,
+  commonWords,
+  wordValid as valid,
 } from '@/lib/word-pools.mjs';
 import { KanaKeyboard, useKanaField } from './kana-input';
 import { useLanguage } from './language';
@@ -39,11 +41,20 @@ type Round = {
 };
 
 const everyday = allAnswers.map((a) => a.reading);
-const spelling = new Map(allAnswers.map((a) => [a.reading, a.spelling]));
+const common = Object.keys(commonWords);
+// Spellings to show: the curated answers first, then the common words.
+const spelling = new Map<string, string>([
+  ...Object.entries(commonWords as Record<string, string>),
+  ...allAnswers.map((a) => [a.reading, a.spelling] as [string, string]),
+]);
 // Kanji typed through an IME resolve to their reading, as in the main game.
-const aliases = Object.assign({}, ...[3, 4, 5, 6].map(aliasesFor));
+const aliases: Record<string, string> = Object.assign(
+  Object.fromEntries([...spelling].map(([reading, kanji]) => [kanji, reading])),
+  ...[3, 4, 5, 6].map(aliasesFor),
+);
 let dictionary: string[] | null = null;
-const pools = () => [everyday, (dictionary ??= [...valid])];
+// The computer reaches for everyday words, then common ones, then anything.
+const pools = () => [everyday, common, (dictionary ??= [...allValid])];
 const opening = () =>
   newShiritori(cpuWord(null, [], [everyday]) ?? everyday[0]) as Round;
 
@@ -183,7 +194,10 @@ export function Shiritori({
                 {link.by === 'you' ? t('あなた：') : t('相手：')}
               </span>
               <b lang="ja">{spelling.get(link.word) ?? link.word}</b>
-              {spelling.has(link.word) && <small lang="ja">{link.word}</small>}
+              {spelling.has(link.word) &&
+                spelling.get(link.word) !== link.word && (
+                  <small lang="ja">{link.word}</small>
+                )}
             </li>
           ))}
           {thinking && (
@@ -271,7 +285,7 @@ export function Shiritori({
           disabled={!playing || thinking}
           finished={!playing}
           onInsert={(k) => {
-            if (!kana.insert(k, 6)) say('6文字まで入力できます。', true);
+            if (!kana.insert(k, 12)) say('12文字まで入力できます。', true);
           }}
           onModify={kana.modify}
           onErase={kana.erase}
