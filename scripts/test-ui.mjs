@@ -1176,6 +1176,157 @@ assert.equal(
   1,
   'found words survive a reload',
 );
+// 和同開珎: one kanji per guess; a reading in kana lists kanji to pick.
+await chooseGame('Kanji cross');
+assert.equal(dom.window.location.pathname, '/wadou/');
+await waitFor(() => document.querySelector('.wadou-clue'));
+const wadouLib = await import('../lib/wadou.mjs');
+const wadouData = await import('../lib/wadou-data.mjs');
+const todayCross =
+  wadouData.puzzles[wadouLib.dailyIndex(dayNow, wadouData.puzzles.length)];
+assert.deepEqual(
+  [...document.querySelectorAll('.wadou-clue')].map((c) => c.textContent),
+  todayCross.k.map((k) => Array.from(k)[0]),
+  "today's clues",
+);
+await type('ほん');
+const pick = [...document.querySelectorAll('.kanji-candidates button')].find(
+  (b) => b.textContent !== todayCross.c,
+);
+assert.ok(pick, 'a reading lists kanji');
+await act(async () => pick.click());
+assert.equal(document.querySelector('#guess').value, pick.textContent);
+assert.equal(
+  document.querySelector('.wadou-centre').textContent,
+  pick.textContent,
+  'the centre previews a picked kanji',
+);
+await submit();
+assert.equal(document.querySelectorAll('.wadou-guess:not(:empty)').length, 1);
+await type('日本');
+await submit();
+assert.ok(text().includes('Answer with one kanji.'));
+await type(todayCross.c);
+await submit();
+await waitFor(() => document.querySelector('.wadou .result-card'));
+assert.equal(document.querySelectorAll('.wadou-words li').length, 4);
+await click('Share result');
+assert.match(
+  document.querySelector('.share-preview').textContent,
+  /^Kotoba · Kanji cross · [\d-]+ {2}2\/5\n/,
+);
+await click('Close');
+await waitFor(() => !document.querySelector('.share-dialog'));
+// ことばのはしご: one kana per rung, with undo, to today's goal.
+await chooseGame('Word ladder');
+assert.equal(dom.window.location.pathname, '/ladder/');
+const ladderLib = await import('../lib/ladder.mjs');
+const pools = await import('../lib/word-pools.mjs');
+const isThree = (w) => Array.from(w).length === 3;
+const ladderGraph = ladderLib.ladderGraph(
+  Object.keys(pools.commonWords).filter(isThree),
+);
+const todayLadder = ladderLib.makeLadder(
+  pools
+    .answersFor(3)
+    .map((a) => a.reading)
+    .filter((w) => w in pools.commonWords),
+  ladderGraph,
+  ladderLib.seeded('ladder:' + dayNow),
+);
+const climb = ladderLib.shortestPath(
+  todayLadder.start,
+  todayLadder.goal,
+  ladderGraph,
+);
+assert.equal(
+  document.querySelector('.ladder-rung.start').getAttribute('aria-label'),
+  'Start: ' + todayLadder.start,
+);
+await type(climb[2]);
+await submit();
+assert.ok(text().includes('Change exactly one kana of the last word.'));
+await type(climb[1]);
+await submit();
+assert.equal(document.querySelectorAll('.ladder-rung').length, 4);
+await click('Undo');
+assert.equal(
+  document.querySelectorAll('.ladder-rung').length,
+  3,
+  'undo takes the rung back',
+);
+for (const word of climb.slice(1)) {
+  await type(word);
+  await submit();
+}
+await waitFor(() => document.querySelector('.ladder .result-card'));
+assert.ok(text().includes('Well played!'), 'par earns praise');
+// 問題を作る: a word becomes a link that plays it.
+await act(async () => document.querySelector('.game-switch').click());
+await act(async () => document.querySelector('.game-create').click());
+const customField = document.querySelector('#custom-word');
+await act(async () => {
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(
+    customField,
+    'がっこう',
+  );
+  customField.dispatchEvent(new Event('input', { bubbles: true }));
+});
+const { encodeWord } = await import('../lib/custom.mjs');
+const customCode = encodeWord('がっこう');
+assert.ok(
+  document
+    .querySelector('.share-preview')
+    .textContent.endsWith('/?w=' + customCode),
+  'the invite carries the link',
+);
+assert.ok(
+  !document.querySelector('.share-preview').textContent.includes('がっこう'),
+  'the invite does not give the word away',
+);
+await click('Close');
+await unmount();
+dom.window.history.replaceState(null, '', '/?w=' + customCode);
+await mount();
+assert.equal(
+  document.querySelector('.board-column .game-heading h2').textContent,
+  "A friend's puzzle",
+);
+await type('がっこう');
+await submit();
+await settle();
+assert.ok(document.querySelector('.result-card'), "the friend's word wins");
+assert.ok(localStorage.getItem('kotoba:v1:custom:' + customCode));
+// ふたりでしりとり: the prompt, then player 1 and player 2 in turn.
+await chooseGame('Shiritori');
+await click('Two players');
+const duoState = () =>
+  JSON.parse(localStorage.getItem('kotoba:v1:shiritori:duo'));
+const duoWord = (start, endsInN) =>
+  [...allValid].find(
+    (w) =>
+      Array.from(w)[0] === start &&
+      Array.from(w).length > 1 &&
+      (tailKana(w) === 'ん') === endsInN &&
+      !duoState().chain.some((l) => l.word === w),
+  );
+const firstDuo = duoWord(tailKana(duoState().chain[0].word), false);
+await type(firstDuo);
+await submit();
+assert.equal(duoState().chain[1].by, 'p1');
+assert.equal(
+  document.querySelector('.next-kana .turn').textContent,
+  'Player 2',
+);
+await type(duoWord(tailKana(firstDuo), true));
+await submit();
+assert.equal(duoState().end, 'n');
+assert.ok(text().includes('Player 1 wins'), 'ending in ん loses for player 2');
+await click('Computer');
+assert.ok(
+  document.querySelector('.shiritori .result-card'),
+  'the computer round keeps its own state',
+);
 await unmount();
 URL.createObjectURL = oldURL;
 URL.revokeObjectURL = oldRevoke;

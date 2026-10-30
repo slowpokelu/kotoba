@@ -269,6 +269,9 @@ a {
   left: 50%;
   translate: -50% 0;
   width: min(340px, calc(100vw - 32px));
+  max-height: calc(100dvh - 140px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   margin: 0;
   padding: 6px;
   list-style: none;
@@ -300,6 +303,23 @@ a {
   grid-row: 1 / span 2;
   color: #2b50bf;
 }
+.game-list .game-create {
+  display: grid;
+  width: 100%;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--foreground);
+  text-align: left;
+}
+.game-create b {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 15px;
+}
+.game-list .game-create:hover,
 .game-list a:hover {
   background: #eef2fa;
 }
@@ -801,6 +821,26 @@ a {
   overflow-wrap: anywhere;
   user-select: text;
 }
+.custom-word {
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--muted-foreground);
+}
+.custom-word input {
+  height: 46px;
+  padding: 0 12px;
+  border: 1px solid #aebbd1;
+  border-radius: 8px;
+  background: white;
+  color: var(--foreground);
+  font-size: 20px;
+}
+[data-theme='dark'] .custom-word input {
+  border-color: #526786;
+  background: #192539;
+  color: #e3eaf7;
+}
 .share-note {
   display: block;
   margin: 0;
@@ -1301,6 +1341,7 @@ a {
   background: #172236;
   color: #e3eaf7;
 }
+[data-theme='dark'] .game-list .game-create:hover,
 [data-theme='dark'] .game-list a:hover {
   background: #1f2d45;
 }
@@ -2201,4 +2242,382 @@ a {
     --cell: 56px;
     margin: 4px auto;
   }
+}
+
+/* 和同開珎: four clue kanji around the hidden centre, arrows in reading
+   order, and a row of guesses whose edges light up for each clue they fit. */
+.wadou-cross {
+  --cell: 64px;
+  --link: 30px;
+  display: grid;
+  grid-template-columns: var(--cell) var(--link) var(--cell) var(--link) var(
+      --cell
+    );
+  grid-template-rows: var(--cell) var(--link) var(--cell) var(--link) var(
+      --cell
+    );
+  justify-content: center;
+  margin: 6px auto 22px;
+}
+.wadou-arm {
+  display: contents;
+}
+.wadou-clue,
+.wadou-centre {
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  font-family: 'Hiragino Mincho ProN', 'Yu Mincho', serif;
+  font-size: calc(var(--cell) * 0.56);
+  font-weight: 600;
+  line-height: 1;
+}
+.wadou-clue {
+  border: 1px solid #ccd5e3;
+  background: white;
+  box-shadow: 0 2px 0 #dbe1eb;
+}
+.wadou-centre {
+  grid-area: 3 / 3;
+  border: 2px dashed #8da2d6;
+  background: #f8faff;
+  color: var(--muted-foreground);
+}
+.wadou-centre.preview {
+  border-style: solid;
+  color: var(--foreground);
+}
+.wadou-centre.won {
+  border: 2px solid #2b50bf;
+  background: #2b50bf;
+  color: white;
+}
+.wadou-centre.lost {
+  border: 2px solid #b42332;
+  background: white;
+  color: #b42332;
+}
+.wadou-arrow {
+  display: grid;
+  place-items: center;
+  color: var(--muted-foreground);
+  font-size: 20px;
+}
+.wadou-clue.top {
+  grid-area: 1 / 3;
+}
+.wadou-arrow.top {
+  grid-area: 2 / 3;
+}
+.wadou-clue.right {
+  grid-area: 3 / 5;
+}
+.wadou-arrow.right {
+  grid-area: 3 / 4;
+}
+.wadou-clue.bottom {
+  grid-area: 5 / 3;
+}
+.wadou-arrow.bottom {
+  grid-area: 4 / 3;
+}
+.wadou-clue.left {
+  grid-area: 3 / 1;
+}
+.wadou-arrow.left {
+  grid-area: 3 / 2;
+}
+.wadou-guesses {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.wadou-guess {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border: 4px solid #dbe1eb;
+  border-radius: 8px;
+  background: white;
+  font-family: 'Hiragino Mincho ProN', 'Yu Mincho', serif;
+  font-size: 24px;
+  font-weight: 600;
+}
+.wadou-guess:empty {
+  border: 1px dashed #ccd5e3;
+  background: transparent;
+}
+.wadou-guess.top {
+  border-top-color: #2b50bf;
+}
+.wadou-guess.right {
+  border-right-color: #2b50bf;
+}
+.wadou-guess.bottom {
+  border-bottom-color: #2b50bf;
+}
+.wadou-guess.left {
+  border-left-color: #2b50bf;
+}
+.wadou-guess.correct {
+  border-color: #2b50bf;
+  background: #2b50bf;
+  color: white;
+}
+.kanji-candidates {
+  display: flex;
+  gap: 6px;
+  margin: 10px 0 0;
+  padding-bottom: 4px;
+  overflow-x: auto;
+}
+.kanji-candidates button {
+  flex: none;
+  width: 42px;
+  height: 42px;
+  border: 1px solid #ccd5e3;
+  border-radius: 8px;
+  background: white;
+  font-family: 'Hiragino Mincho ProN', 'Yu Mincho', serif;
+  font-size: 22px;
+}
+.wadou-words {
+  display: grid;
+  gap: 4px;
+  margin: 6px auto 0;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
+}
+.wadou-words li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: baseline;
+  gap: 4px 10px;
+}
+.wadou-words a {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 18px;
+  font-weight: 600;
+}
+.wadou-words span,
+.wadou-words small {
+  color: var(--muted-foreground);
+}
+[data-theme='dark'] .wadou-clue,
+[data-theme='dark'] .wadou-guess,
+[data-theme='dark'] .kanji-candidates button {
+  border-color: #43536e;
+  background: #223149;
+  box-shadow: none;
+  color: #e3eaf7;
+}
+[data-theme='dark'] .wadou-centre {
+  border-color: #5b74b8;
+  background: #172236;
+}
+[data-theme='dark'] .wadou-centre.won,
+[data-theme='dark'] .wadou-guess.correct {
+  border-color: #3f66d6;
+  background: #3f66d6;
+  color: white;
+}
+[data-theme='dark'] .wadou-guess.top {
+  border-top-color: #6f8ff0;
+}
+[data-theme='dark'] .wadou-guess.right {
+  border-right-color: #6f8ff0;
+}
+[data-theme='dark'] .wadou-guess.bottom {
+  border-bottom-color: #6f8ff0;
+}
+[data-theme='dark'] .wadou-guess.left {
+  border-left-color: #6f8ff0;
+}
+[data-theme='dark'] .wadou-guess:empty {
+  border-color: #374660;
+  background: transparent;
+}
+@media (max-width: 760px) {
+  .wadou-cross {
+    --cell: 46px;
+    --link: 20px;
+    flex: none;
+    margin: 2px auto 6px;
+  }
+  .wadou-guess {
+    width: 38px;
+    height: 38px;
+    border-width: 3px;
+    font-size: 19px;
+  }
+  /* Like an IME's candidate bar: over the guesses, just above the field. */
+  .kanji-candidates {
+    position: absolute;
+    z-index: 2;
+    right: 0;
+    bottom: calc(100% + 4px);
+    left: 0;
+    margin: 0;
+    padding: 6px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--background);
+    box-shadow: 0 6px 18px #17284920;
+  }
+}
+
+/* ことばのはしご: rungs from the start downwards, the goal waiting below. */
+.ladder-rungs {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: max-content;
+  min-width: 250px;
+  max-height: calc(7 * 58px);
+  margin: 0 auto;
+  padding: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+}
+.ladder-rung {
+  display: grid;
+  grid-template-columns: auto minmax(4em, 1fr);
+  align-items: center;
+  gap: 12px;
+}
+.ladder-tiles {
+  display: flex;
+  gap: 6px;
+}
+.ladder .tile {
+  width: 52px;
+  height: 52px;
+  font-size: 26px;
+}
+/* The kana changed on this rung. */
+.ladder .tile.changed {
+  box-shadow: inset 0 -4px 0 #efbc4d;
+}
+.ladder-word {
+  color: var(--muted-foreground);
+  font-size: 14px;
+}
+.ladder-path {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px 8px;
+}
+.ladder-path span {
+  white-space: nowrap;
+}
+.ladder-rung.goal {
+  width: max-content;
+  min-width: 250px;
+  margin: 12px auto 0;
+  padding-top: 12px;
+  border-top: 2px dashed var(--border);
+}
+.ladder-tools {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+}
+.ladder-tools .give-up {
+  margin: 0;
+}
+.ladder-tools .text-button:first-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+}
+@media (max-width: 760px) {
+  .ladder-rungs {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+  }
+  .ladder .tile {
+    width: 40px;
+    height: 40px;
+    font-size: 21px;
+  }
+  .ladder-rung.goal {
+    margin-top: 6px;
+    padding-top: 6px;
+  }
+  .control-column > .ladder-tools {
+    grid-column: 2;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+    margin: 0;
+  }
+  .ladder-tools .text-button {
+    font-size: 13px;
+  }
+}
+
+/* しりとり: computer or two players, as a small segmented switch. */
+.shiritori-mode {
+  display: inline-flex;
+  min-width: 0;
+  margin: 0;
+  padding: 3px;
+  border: 0;
+  gap: 2px;
+  border-radius: 8px;
+  background: #e3e8f1;
+}
+.shiritori-mode button {
+  padding: 3px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #52617b;
+  font-size: 13px;
+}
+.shiritori-mode button[aria-pressed='true'] {
+  background: white;
+  color: #254cca;
+  box-shadow: 0 1px 3px #1728490f;
+}
+[data-theme='dark'] .shiritori-mode {
+  background: #192539;
+}
+[data-theme='dark'] .shiritori-mode button {
+  color: #a7b6d0;
+}
+[data-theme='dark'] .shiritori-mode button[aria-pressed='true'] {
+  background: #2a3b56;
+  color: #b3c7ff;
+}
+/* ふたり: the opening word is a prompt for both, in the middle. */
+.chain-word.opener {
+  align-self: center;
+  border-radius: 12px;
+}
+.next-kana .turn {
+  margin-right: 8px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: #e8eefc;
+  color: #254cca;
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 600;
+}
+[data-theme='dark'] .next-kana .turn {
+  background: #2a3b56;
+  color: #b3c7ff;
 }

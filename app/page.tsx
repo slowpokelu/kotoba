@@ -27,7 +27,11 @@ import { Legend, ModeChips } from './legend';
 import { NextPuzzle } from './next-puzzle';
 import { GameNav, gameLabel, type Route } from './game-menu';
 import { parseRoute, routePath } from '@/lib/routes.mjs';
+import { decodeWord } from '@/lib/custom.mjs';
+import { CreatePuzzle } from './custom-puzzle';
 import { Bee } from './bee';
+import { Wadou } from './wadou';
+import { Ladder } from './ladder';
 import { ShareButton, englishShare, jisho, useFinePointer } from './share';
 import { PlayerTools } from './player-tools';
 import { LanguageProvider, LanguageSwitcher, useLanguage } from './language';
@@ -47,6 +51,7 @@ import {
   dictionaryUpdated,
 } from '@/lib/word-pools.mjs';
 import {
+  gameLength,
   LIMIT,
   limitFor,
   dodge,
@@ -74,14 +79,28 @@ import {
 import { gameKey } from '@/lib/profile.mjs';
 import type { Game, Status } from '@/lib/types';
 
-type Mode = 'daily' | 'practice' | 'play';
+type Mode = 'daily' | 'practice' | 'play' | 'custom';
 const modeOf = (route: Route): Mode =>
-  route.game === 'kotoba' ? (route.practice ? 'practice' : 'daily') : 'play';
-// The address picks the game; the server sends the same page for each.
+  route.custom
+    ? 'custom'
+    : route.game === 'kotoba'
+      ? route.practice
+        ? 'practice'
+        : 'daily'
+      : 'play';
+// The address picks the game; the server sends the same page for each. A
+// ?w= link on the site root carries a friend's word.
 function routeHere(): Route & { base: string } {
   if (typeof window === 'undefined')
     return { game: 'kotoba', practice: false, base: '/' };
-  return parseRoute(window.location.pathname) as Route & { base: string };
+  const route = parseRoute(window.location.pathname) as Route & {
+    base: string;
+  };
+  const code = new URLSearchParams(window.location.search).get('w') ?? '';
+  const word = decodeWord(code);
+  return route.game === 'kotoba' && !route.practice && valid.has(word)
+    ? { ...route, custom: code }
+    : route;
 }
 // いじわる picks from the everyday four-kana words.
 const absurdPool = answersFor(4).map((a) => a.reading);
@@ -114,10 +133,11 @@ export default function Home() {
 function GameView() {
   const { t, language } = useLanguage();
   const [route, setRoute] = useState<Route>(() => {
-    const { game, practice } = routeHere();
-    return { game, practice };
+    const { base: _, ...here } = routeHere();
+    return here;
   });
   const base = useRef(routeHere().base);
+  const [creating, setCreating] = useState(false);
   const mode = modeOf(route);
   const playMode = route.game;
   const [practiceLength, setPracticeLength] = useState(4);
@@ -214,7 +234,7 @@ function GameView() {
     } catch {
       /* Use four kana if browser storage is unavailable. */
     }
-    setGame(gameFor(modeRef.current, length));
+    setGame(gameFor(modeRef.current, length, routeHere().custom));
     const tick = setInterval(() => {
       const next = localDay();
       if (next !== currentDay.current) {
@@ -251,7 +271,12 @@ function GameView() {
   }, [game]);
 
   const result = game ? outcome(game) : 'playing';
-  const length = mode === 'practice' ? practiceLength : 4;
+  const length =
+    mode === 'practice'
+      ? practiceLength
+      : mode === 'custom' && game
+        ? (gameLength(game.id) ?? 4)
+        : 4;
   const limit = game ? limitFor(game.id) : LIMIT;
   const absurd = game?.id === 'absurd';
   const turn = game ? game.guesses.length + (result === 'playing' ? 1 : 0) : 1;
@@ -317,7 +342,9 @@ function GameView() {
     say('');
   }
   // The game a tab opens: today's puzzle, the saved practice round, or いじわる.
-  function gameFor(next: Mode, length = practiceLength) {
+  function gameFor(next: Mode, length = practiceLength, custom = '') {
+    if (next === 'custom')
+      return loadGame(newGame(decodeWord(custom), 'custom:' + custom));
     if (next === 'daily')
       return loadGame(
         newGame(
@@ -347,26 +374,27 @@ function GameView() {
     if (timer.current) clearTimeout(timer.current);
     busy.current = false;
     setRoute(next);
-    setGame(gameFor(modeOf(next), length));
+    setGame(gameFor(modeOf(next), length, next.custom));
     setGivingUp(false);
     setRevealing(-1);
     say('');
   }
   // Tabs and bookmarks name the game.
   useEffect(() => {
-    document.title =
-      route.game === 'kotoba'
+    document.title = route.custom
+      ? '友だちの問題 · ことば'
+      : route.game === 'kotoba'
         ? 'ことば · Kotoba'
         : gameLabel(route.game) + ' · ことば';
-  }, [route.game]);
+  }, [route.game, route.custom]);
   const showRef = useRef(show);
   useEffect(() => {
     showRef.current = show;
   });
   useEffect(() => {
     const back = () => {
-      const { game, practice } = routeHere();
-      showRef.current({ game, practice });
+      const { base: _, ...here } = routeHere();
+      showRef.current(here);
     };
     window.addEventListener('popstate', back);
     return () => window.removeEventListener('popstate', back);
@@ -572,9 +600,28 @@ function GameView() {
           day={day}
           disabled={revealing >= 0}
           onGo={go}
+          onCreate={() => setCreating(true)}
+        />
+        <CreatePuzzle
+          open={creating}
+          onOpenChange={setCreating}
+          base={base.current}
         />
         <div className="game-panel">
-          {shiritori ? (
+          {mode === 'play' &&
+          (playMode === 'wadou' || playMode === 'ladder') ? (
+            (() => {
+              const Game = playMode === 'wadou' ? Wadou : Ladder;
+              return (
+                <Game
+                  key={playMode + (route.practice ? ':practice' : ':' + day)}
+                  day={route.practice ? '' : day}
+                  onPractice={() => go({ ...route, practice: true })}
+                  onTyping={setTyping}
+                />
+              );
+            })()
+          ) : shiritori ? (
             <Shiritori onTyping={setTyping} />
           ) : bee ? (
             <Bee onTyping={setTyping} day={day} />
@@ -596,7 +643,9 @@ function GameView() {
                   ? t('今日の一問')
                   : mode === 'practice'
                     ? t('練習')
-                    : t('いじわる')
+                    : mode === 'custom'
+                      ? t('友だちの問題')
+                      : t('いじわる')
               }
             >
               <div className="board-column">
@@ -629,6 +678,8 @@ function GameView() {
                     </div>
                   ) : mode === 'play' ? (
                     <span />
+                  ) : mode === 'custom' ? (
+                    <h2>{t('友だちの問題')}</h2>
                   ) : (
                     <h2>
                       {day ? day.replaceAll('-', ' / ') : t('今日の一問')}
@@ -906,6 +957,7 @@ function GameView() {
           {mode === 'daily'
             ? t('一日一語。')
             : route.practice ||
+                route.custom ||
                 route.game === 'absurd' ||
                 route.game === 'shiritori'
               ? t('何度でも遊べます。')
@@ -983,12 +1035,32 @@ function GameView() {
             </p>
             <p>
               {t(
+                '和同開珎：真ん中の漢字を当てます。周りの4つの漢字と、矢印の向きに読むとどれも熟語になる1文字です。回答は5回まで。かなで読みを入れると候補が出ます。外れても、熟語になった方向の辺が青くなります。',
+              )}
+            </p>
+            <p>
+              {t(
+                'ことばのはしご：スタートの言葉から1文字ずつ変えて、ゴールの言葉まで。途中もすべて辞書にある言葉です。最短の手数が目安。',
+              )}
+            </p>
+            <p>
+              {t(
                 'いじわる：回答するたびに、それまでの結果と矛盾しない別の言葉へ答えが逃げていく4文字のパズル。回数制限はなし。何手で追い詰められるか挑戦します。',
               )}
             </p>
             <p>
               {t(
                 'しりとり：前の言葉の最後のかなから始まる、2文字以上の言葉で続けます。小さいかなは大きく（しゃ→や）、最後の「ー」は一つ前のかなで続けます。「ん」で終わると負け。同じ言葉は使えません。時間制限はありません。',
+              )}
+            </p>
+            <p>
+              {t(
+                '「ふたり」にすると、1台を交代で使って先手と後手で対戦できます。',
+              )}
+            </p>
+            <p>
+              {t(
+                '問題を作る：メニューから答えの言葉を選ぶと、その言葉で遊べるリンクができます。友だちや家族に送ってみてください。',
               )}
             </p>
             <h3>{t('かなの数え方')}</h3>
@@ -1043,6 +1115,17 @@ function GameView() {
                 {t('。更新：')}
                 {dictionaryUpdated}
                 {t('。')}
+              </p>
+              <p>
+                {t('和同開珎の熟語と漢字の読み：JMdict と ')}
+                <a
+                  href="https://www.edrdg.org/wiki/index.php/KANJIDIC_Project"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  KANJIDIC2
+                </a>
+                {t('（© EDRDG、CC BY-SA 4.0）。')}
               </p>
               <p>
                 {t('正解の言葉は日常語から選定。判定用辞書は')}

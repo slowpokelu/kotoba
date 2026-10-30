@@ -9,7 +9,13 @@ More games from the menu, each at its own address:
 - ダブル and トリプル (`/double/`, `/triple/`): two or three words at once as in Dordle, with a daily puzzle and practice (`…/practice/`).
 - かなビー (`/bee/`): a daily Spelling Bee with seven kana.
 - いじわる (`/sneaky/`): an Absurdle-style puzzle whose answer dodges every guess until you corner it.
-- しりとり (`/shiritori/`): against the computer, with no time limit.
+- 和同開珎 (`/wadou/`): find the kanji that makes a word with four clue kanji, read along the arrows. A daily puzzle and practice; type the kanji or a reading in kana.
+- ことばのはしご (`/ladder/`): change one kana at a time from the start word to the goal, every rung a word. Daily and practice, with a par.
+- しりとり (`/shiritori/`): against the computer, with no time limit, or two players taking turns on one device.
+
+問題を作る in the menu turns any dictionary word into a link (`/?w=…`) that plays it as a ことば round, for sending to friends.
+
+和同開珎's puzzles come from `node scripts/update-wadou.mjs path/to/jamdict.db` (JMdict and KANJIDIC2 from the jamdict-data package, © EDRDG, CC BY-SA 4.0). Each centre kanji is checked to be the only one that makes a word with all four clues.
 
 The menu checks off today's finished puzzles. The build copies `index.html` into each address folder so GitHub Pages serves them.
 

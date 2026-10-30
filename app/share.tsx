@@ -27,17 +27,23 @@ export function useFinePointer() {
   return finePointer;
 }
 
-// Opens a preview of the result with both the system share sheet (where the
-// browser has one) and a copy button.
-export function ShareButton({ text }: { text: string }) {
+// A preview of the text with the system share sheet (where the browser has
+// one) and a copy button.
+export function SharePanel({
+  text,
+  onShared,
+}: {
+  text: string;
+  onShared?: () => void;
+}) {
   const { t } = useLanguage();
-  const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState<'' | 'yes' | 'no'>('');
   const [canShare, setCanShare] = useState(false);
   const preview = useRef<HTMLPreElement>(null);
   useEffect(() => {
     setCanShare(typeof navigator.share === 'function');
   }, []);
+  useEffect(() => setCopied(''), [text]);
   async function copy() {
     try {
       await navigator.clipboard.writeText(text);
@@ -54,20 +60,51 @@ export function ShareButton({ text }: { text: string }) {
   async function share() {
     try {
       await navigator.share({ text });
-      setOpen(false);
+      onShared?.();
     } catch {
       /* Cancelled, or the sheet is unavailable; copying still works. */
     }
   }
   return (
     <>
-      <button
-        className="secondary-button"
-        onClick={() => {
-          setCopied('');
-          setOpen(true);
-        }}
+      <pre
+        ref={preview}
+        className="share-preview"
+        aria-label={t('共有する結果')}
       >
+        {text}
+      </pre>
+      <div className="dialog-actions">
+        {canShare && (
+          <button className="primary-button" onClick={share}>
+            <Share2 size={17} />
+            {t('共有')}
+          </button>
+        )}
+        <button
+          className={canShare ? 'secondary-button' : 'primary-button'}
+          onClick={copy}
+        >
+          {copied === 'yes' ? <Check size={17} /> : <Copy size={17} />}
+          {copied === 'yes' ? t('コピーしました') : t('コピー')}
+        </button>
+      </div>
+      <output className="share-note">
+        {copied === 'no'
+          ? t('コピーできませんでした。上の結果を選択してコピーしてください。')
+          : ''}
+      </output>
+    </>
+  );
+}
+
+// 結果を共有: opens the preview in a dialog.
+export function ShareButton({ text }: { text: string }) {
+  const { t } = useLanguage();
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button className="secondary-button" onClick={() => setOpen(true)}>
         <Share2 size={17} />
         {t('結果を共有')}
       </button>
@@ -83,35 +120,7 @@ export function ShareButton({ text }: { text: string }) {
             <X size={20} />
           </DialogClose>
           <DialogTitle className="help-title">{t('結果を共有')}</DialogTitle>
-          <pre
-            ref={preview}
-            className="share-preview"
-            aria-label={t('共有する結果')}
-          >
-            {text}
-          </pre>
-          <div className="dialog-actions">
-            {canShare && (
-              <button className="primary-button" onClick={share}>
-                <Share2 size={17} />
-                {t('共有')}
-              </button>
-            )}
-            <button
-              className={canShare ? 'secondary-button' : 'primary-button'}
-              onClick={copy}
-            >
-              {copied === 'yes' ? <Check size={17} /> : <Copy size={17} />}
-              {copied === 'yes' ? t('コピーしました') : t('コピー')}
-            </button>
-          </div>
-          <output className="share-note">
-            {copied === 'no'
-              ? t(
-                  'コピーできませんでした。上の結果を選択してコピーしてください。',
-                )
-              : ''}
-          </output>
+          {open && <SharePanel text={text} onShared={() => setOpen(false)} />}
         </DialogContent>
       </Dialog>
     </>
@@ -122,11 +131,18 @@ export function ShareButton({ text }: { text: string }) {
 export const englishShare = (text: string) =>
   text
     .replace('ことば', 'Kotoba')
+    .replace('友だちの問題', "A friend's puzzle")
     .replace('練習', 'Practice')
     .replace('いじわる', 'Sneaky')
     .replace('ダブル', 'Double')
     .replace('トリプル', 'Triple')
+    .replace('ふたりでしりとり', 'Shiritori for two')
     .replace('しりとり', 'Shiritori')
+    .replace('和同開珎', 'Kanji cross')
+    .replace('はしご', 'Word ladder')
+    .replace(/(\d+|X)(?:手)?（最短(\d+)手）/, (_, n, par) =>
+      n === 'X' ? `X (par ${par})` : `${n} steps (par ${par})`,
+    )
     .replace('[ハード]', '[Hard]')
     .replace('[ヒント]', '[Hints]')
     .replace(/(\d)文字/, '$1 kana')

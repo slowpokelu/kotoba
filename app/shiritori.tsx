@@ -14,6 +14,9 @@ import { resolveGuess } from '@/lib/game.mjs';
 import {
   SHIRITORI_KEY,
   SHIRITORI_BEST_KEY,
+  SHIRITORI_DUO_KEY,
+  SHIRITORI_MODE_KEY,
+  duoTurn,
   checkWord,
   cpuWord,
   losesOnN,
@@ -34,7 +37,7 @@ import { KanaKeyboard, useKanaField } from './kana-input';
 import { useLanguage } from './language';
 import { ShareButton, englishShare, jisho, useFinePointer } from './share';
 
-type Link = { word: string; by: 'cpu' | 'you' };
+type Link = { word: string; by: 'cpu' | 'you' | 'p1' | 'p2' };
 type Round = {
   version: number;
   chain: Link[];
@@ -74,31 +77,55 @@ export function Shiritori({
   const [thinking, setThinking] = useState(false);
   const [givingUp, setGivingUp] = useState(false);
   const [record, setRecord] = useState(false);
+  // ふたり: two players share the device; null until the choice is read.
+  const [duo, setDuo] = useState<boolean | null>(null);
+  const key = duo ? SHIRITORI_DUO_KEY : SHIRITORI_KEY;
   const list = useRef<HTMLOListElement>(null);
   const continueButton = useRef<HTMLButtonElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    let saved: Round | null = null;
     try {
-      saved = restoreShiritori(localStorage.getItem(SHIRITORI_KEY), valid);
+      setDuo(localStorage.getItem(SHIRITORI_MODE_KEY) === 'duo');
       setBest(Number(localStorage.getItem(SHIRITORI_BEST_KEY)) || 0);
     } catch {
-      /* Start fresh when storage is unavailable. */
+      setDuo(false);
     }
-    setRound(saved ?? opening());
     return () => {
       if (timer.current) clearTimeout(timer.current);
     };
   }, []);
+  // Each mode keeps its own round.
   useEffect(() => {
-    if (!round) return;
+    if (duo === null) return;
+    let saved: Round | null = null;
     try {
-      localStorage.setItem(SHIRITORI_KEY, JSON.stringify(round));
+      saved = restoreShiritori(localStorage.getItem(key), valid);
+    } catch {
+      /* Start fresh when storage is unavailable. */
+    }
+    setRound(saved ?? opening());
+    setRecord(false);
+    setMessage('');
+  }, [duo, key]);
+  useEffect(() => {
+    if (!round || duo === null) return;
+    try {
+      localStorage.setItem(key, JSON.stringify(round));
     } catch {
       /* Keep playing without saving. */
     }
-  }, [round]);
+  }, [round, key, duo]);
+  function chooseMode(next: boolean) {
+    if (next === duo || thinking) return;
+    setRound(null);
+    setDuo(next);
+    try {
+      localStorage.setItem(SHIRITORI_MODE_KEY, next ? 'duo' : 'cpu');
+    } catch {
+      /* The choice lasts for this visit. */
+    }
+  }
   // Keep the newest word in view, also when the chain changes size (the phone
   // keyboard opening or closing).
   const words = round?.chain.length ?? 0;
@@ -123,6 +150,10 @@ export function Shiritori({
     setError(isError);
   }
   function finish(next: Round) {
+    if (duo) {
+      setRound(next);
+      return;
+    }
     const score = yourWords(next);
     if (score > best) {
       setBest(score);
@@ -143,14 +174,20 @@ export function Shiritori({
       say(checked.error, true);
       return;
     }
-    const chain: Link[] = [...round.chain, { word, by: 'you' }];
+    const by = duo ? duoTurn(round) : 'you';
+    const chain: Link[] = [...round.chain, { word, by }];
     if (losesOnN(word)) {
-      say('「ん」で終わったので、あなたの負けです。');
+      say(
+        duo
+          ? `「ん」で終わったので、${by === 'p1' ? '先手' : '後手'}の負けです。`
+          : '「ん」で終わったので、あなたの負けです。',
+      );
       finish({ ...round, chain, draft: '', end: 'n' });
       return;
     }
     say('');
     setRound({ ...round, chain, draft: '' });
+    if (duo) return;
     setThinking(true);
     // A short pause so the reply reads as a turn, not an echo.
     timer.current = setTimeout(() => {
@@ -178,14 +215,33 @@ export function Shiritori({
     setRound(opening());
   }
 
-  const score = round ? yourWords(round) : 0;
+  const score = round ? (duo ? round.chain.length - 1 : yourWords(round)) : 0;
+  const turn = round && duo ? duoTurn(round) : 'you';
+  const name = (by: string) => (by === 'p1' ? '先手' : '後手');
+  // Who lost: the one who said ん, or the one whose turn it was to answer.
+  const loser =
+    round?.end === 'n' ? round.chain.at(-1)!.by : round?.end ? turn : '';
   return (
     <section className="play-area shiritori" aria-label={t('しりとり')}>
       <div className="board-column">
         <div className="game-heading">
-          <span />
+          <fieldset className="shiritori-mode">
+            <legend className="sr-only">{t('相手')}</legend>
+            {[false, true].map((two) => (
+              <button
+                key={String(two)}
+                type="button"
+                aria-pressed={duo === two}
+                disabled={thinking}
+                onClick={() => chooseMode(two)}
+              >
+                {two ? t('ふたり') : t('コンピューター')}
+              </button>
+            ))}
+          </fieldset>
           <span>
-            {t(score + '語')} · {t('最高 ' + best)}
+            {t(score + '語')}
+            {!duo && ' · ' + t('最高 ' + best)}
           </span>
         </div>
         <ol className="chain" ref={list} aria-label={t('しりとりの言葉')}>
@@ -200,9 +256,22 @@ export function Shiritori({
               </>
             );
             return (
-              <li key={i} className={'chain-word ' + link.by}>
+              <li
+                key={i}
+                className={
+                  'chain-word ' +
+                  (link.by === 'you' || link.by === 'p1' ? 'you' : 'cpu') +
+                  (duo && !i ? ' opener' : '')
+                }
+              >
                 <span className="sr-only">
-                  {link.by === 'you' ? t('あなた：') : t('相手：')}
+                  {duo
+                    ? i
+                      ? t(name(link.by) + '：')
+                      : t('お題：')
+                    : link.by === 'you'
+                      ? t('あなた：')
+                      : t('相手：')}
                 </span>
                 {/* As on the boards: a mouse looks words up mid-game, touch
                     once the chain is over. */}
@@ -224,9 +293,13 @@ export function Shiritori({
           })}
           {playing && round.chain.length === 1 && (
             <li className="chain-hint">
-              {t(
-                '相手の言葉の最後のかなから始まる言葉を答えよう。「ん」で終わったら負け。',
-              )}
+              {duo
+                ? t(
+                    'お題から、先手と後手が交互に続けます。「ん」で終わるか、降参したら負け。',
+                  )
+                : t(
+                    '相手の言葉の最後のかなから始まる言葉を答えよう。「ん」で終わったら負け。',
+                  )}
             </li>
           )}
           {thinking && (
@@ -240,10 +313,20 @@ export function Shiritori({
         {round?.end ? (
           <section className="result-card" aria-label={t('結果')}>
             <span className="eyebrow">
-              {round.end === 'cpu' ? t('あなたの勝ち') : t('おしまい')}
+              {duo
+                ? t(name(loser === 'p1' ? 'p2' : 'p1') + 'の勝ち')
+                : round.end === 'cpu'
+                  ? t('あなたの勝ち')
+                  : t('おしまい')}
             </span>
             <h2>{t(score + '語')}</h2>
-            <p>{record ? t('最高記録！') : t('最高 ' + best)}</p>
+            <p>
+              {duo
+                ? t(score + '語つながりました。')
+                : record
+                  ? t('最高記録！')
+                  : t('最高 ' + best)}
+            </p>
             <div className="result-actions">
               <button className="primary-button" onClick={restart}>
                 <RotateCcw size={17} />
@@ -262,6 +345,7 @@ export function Shiritori({
           <>
             <p className="next-kana">
               <span>
+                {duo && <em className="turn">{t(name(turn))}</em>}
                 {t('次は')}
                 <b lang="ja">「{need}」</b>
                 {t('から')}
@@ -347,7 +431,7 @@ export function Shiritori({
               onClick={() => {
                 setGivingUp(false);
                 if (round) {
-                  say('降参しました。');
+                  say(duo ? name(turn) + 'が降参しました。' : '降参しました。');
                   finish({ ...round, draft: '', end: 'gave-up' });
                 }
               }}

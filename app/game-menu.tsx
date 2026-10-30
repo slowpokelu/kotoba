@@ -1,10 +1,12 @@
 'use client';
 /* oxlint-disable react/react-compiler -- No React compiler is enabled; the list reads storage when it opens. */
 import { useEffect, useRef, useState } from 'react';
-import { Check, ChevronDown } from 'lucide-react';
+import { Check, ChevronDown, Plus } from 'lucide-react';
 import { outcome } from '@/lib/game.mjs';
 import { boardsKey, doubleOutcome } from '@/lib/double.mjs';
 import { gameKey } from '@/lib/profile.mjs';
+import { WADOU_LIMIT, wadouKey } from '@/lib/wadou.mjs';
+import { ladderKey, ladderOutcome } from '@/lib/ladder.mjs';
 import { HAS_PRACTICE, routePath } from '@/lib/routes.mjs';
 import { useLanguage } from './language';
 
@@ -12,16 +14,21 @@ export type GameName =
   | 'kotoba'
   | 'double'
   | 'triple'
+  | 'wadou'
+  | 'ladder'
   | 'absurd'
   | 'bee'
   | 'shiritori';
-export type Route = { game: GameName; practice: boolean };
+// custom: a friend's puzzle from a ?w= link, played as ことば.
+export type Route = { game: GameName; practice: boolean; custom?: string };
 
 // Daily games first, then the ones to play any time.
 const MENU: [GameName, string, string][] = [
   ['kotoba', 'ことば', '4文字の言葉を8回で'],
   ['double', 'ダブル', '2つの言葉を同時に、9回で'],
   ['triple', 'トリプル', '3つの言葉を同時に、10回で'],
+  ['wadou', '和同開珎', '4つの熟語の真ん中の漢字'],
+  ['ladder', 'ことばのはしご', '1文字ずつ変えてゴールへ'],
   ['bee', 'かなビー', '7つのかなで言葉を作る'],
   ['absurd', 'いじわる', '逃げる答えを追い詰める'],
   ['shiritori', 'しりとり', 'コンピューターと言葉をつなぐ'],
@@ -34,6 +41,15 @@ function finishedToday(day: string) {
   try {
     const main = localStorage.getItem(gameKey('daily:' + day));
     if (main && outcome(JSON.parse(main)) !== 'playing') done.add('kotoba');
+    const wadou = localStorage.getItem(wadouKey(day));
+    if (wadou) {
+      const round = JSON.parse(wadou);
+      if (round.solved || round.gaveUp || round.guesses?.length >= WADOU_LIMIT)
+        done.add('wadou');
+    }
+    const ladder = localStorage.getItem(ladderKey(day));
+    if (ladder && ladderOutcome(JSON.parse(ladder)) !== 'playing')
+      done.add('ladder');
     for (const [game, boards] of [
       ['double', 2],
       ['triple', 3],
@@ -56,12 +72,14 @@ export function GameNav({
   day,
   disabled,
   onGo,
+  onCreate,
 }: {
   route: Route;
   base: string;
   day: string;
   disabled: boolean;
   onGo: (next: Route) => void;
+  onCreate: () => void;
 }) {
   const { t, language } = useLanguage();
   const [open, setOpen] = useState(false);
@@ -126,7 +144,9 @@ export function GameNav({
               <li key={game} className={game === 'absurd' ? 'first-free' : ''}>
                 <a
                   href={routePath(base, game)}
-                  aria-current={game === route.game ? 'page' : undefined}
+                  aria-current={
+                    game === route.game && !route.custom ? 'page' : undefined
+                  }
                   onClick={follow({ game, practice: false })}
                 >
                   <b>{t(label)}</b>
@@ -137,6 +157,22 @@ export function GameNav({
                 </a>
               </li>
             ))}
+            <li className="first-free">
+              <button
+                type="button"
+                className="game-create"
+                onClick={() => {
+                  setOpen(false);
+                  onCreate();
+                }}
+              >
+                <b>
+                  <Plus size={15} aria-hidden="true" />
+                  {t('問題を作る')}
+                </b>
+                <small>{t('言葉を選んで、友だちにリンクを送る')}</small>
+              </button>
+            </li>
           </ul>
         )}
       </div>
@@ -146,7 +182,11 @@ export function GameNav({
             <a
               key={String(practice)}
               href={routePath(base, route.game, practice)}
-              aria-current={route.practice === practice ? 'page' : undefined}
+              aria-current={
+                !route.custom && route.practice === practice
+                  ? 'page'
+                  : undefined
+              }
               onClick={follow({ ...route, practice })}
             >
               {practice ? t('練習') : t('今日の一問')}
