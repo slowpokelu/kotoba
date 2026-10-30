@@ -2407,8 +2407,7 @@ a {
   font-size: 18px;
   font-weight: 600;
 }
-.wadou-words span,
-.wadou-words small {
+.wadou-words span {
   color: var(--muted-foreground);
 }
 [data-theme='dark'] .wadou-clue,

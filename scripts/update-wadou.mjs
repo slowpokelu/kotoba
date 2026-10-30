@@ -53,10 +53,6 @@ const reading = db.prepare(
   `select k.text from Kana k left join KNP p on p.kid = k.ID
    where k.idseq = ? order by p.kid is null, k.ID limit 1`,
 );
-const gloss = db.prepare(
-  `select g.text from Sense s join SenseGloss g on g.sid = s.ID
-   where s.idseq = ? and g.lang = 'eng' order by s.ID, g.rowid limit 1`,
-);
 
 // Kanji that make a word after (or before) each kanji.
 const after = new Map(),
@@ -137,11 +133,7 @@ for (const centre of centres) {
     k: set.map((o) => o.clue + (o.out ? '>' : '<')),
     w: set.map((o) => {
       const { idseq } = common.get(o.word);
-      return [
-        o.word,
-        reading.get(idseq)?.text ?? '',
-        gloss.get(idseq)?.text ?? '',
-      ];
+      return [o.word, reading.get(idseq)?.text ?? ''];
     }),
   });
 }

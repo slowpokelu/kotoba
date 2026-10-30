@@ -265,7 +265,7 @@ export function Wadou({
               </p>
             )}
             <ul className="wadou-words">
-              {puzzle.w.map(([word, read, gloss]) => (
+              {puzzle.w.map(([word, read]) => (
                 <li key={word}>
                   <a
                     href={jisho(word)}
@@ -277,9 +277,6 @@ export function Wadou({
                     <ExternalLink size={13} aria-hidden="true" />
                   </a>
                   <span lang="ja">{read}</span>
-                  {language === 'en' && gloss && (
-                    <small>{gloss.replace(/\s*\([^)]*\)/g, '')}</small>
-                  )}
                 </li>
               ))}
             </ul>
