@@ -52,6 +52,7 @@ import {
   dictionaryUpdated,
 } from '@/lib/word-pools.mjs';
 import {
+  inferredKana,
   gameLength,
   LIMIT,
   limitFor,
@@ -965,6 +966,11 @@ function GameView() {
                 </output>
                 <KanaKeyboard
                   keys={keys}
+                  inferred={
+                    game
+                      ? inferredKana(game.guesses, game.answer, game.hints)
+                      : []
+                  }
                   disabled={!game || finished || revealing >= 0}
                   finished={finished}
                   onInsert={insert}
@@ -1044,7 +1050,7 @@ function GameView() {
             <h3>{t('ヒント表示')}</h3>
             <p>
               {t(
-                '設定でオンにすると、濁点・半濁点・大小だけが違うかなを枠線で示します。青い枠と✓は同じ位置、黄色い枠と●は別の位置。「き」に対して「ぎ」、「つ」に対して「っ」や「づ」などです。モードは各問題の最初の回答で決まり、回数の横に表示されます。',
+                '設定でオンにすると、濁点・半濁点・大小だけが違うかなを枠線で示します。青い枠と✓は同じ位置、黄色い枠と●は別の位置。「き」に対して「ぎ」、「つ」に対して「っ」や「づ」などです。仲間がどれも含まれないと分かったかなは、試していなくてもキーが灰色になります。モードは各問題の最初の回答で決まり、回数の横に表示されます。',
               )}
             </p>
             <h3>{t('ハードモード')}</h3>

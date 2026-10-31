@@ -119,6 +119,7 @@ export const boardNames = (boards: number) =>
 // stays closed while tapping them.
 export function KanaKeyboard({
   keys = {},
+  inferred = [],
   split,
   disabled,
   finished = false,
@@ -127,6 +128,8 @@ export function KanaKeyboard({
   onErase,
 }: {
   keys?: Record<string, Status>;
+  // Untried kana known to be out (hint mode): grey, without the − mark.
+  inferred?: string[];
   // ダブル and トリプル: each key shows every board, left to right.
   split?: Record<string, (Status | null)[]>;
   disabled: boolean;
@@ -207,7 +210,7 @@ export function KanaKeyboard({
                 onClick={() => onInsert(k)}
               >
                 {k}
-                {!split && keys[k] && (
+                {!split && keys[k] && !inferred.includes(k) && (
                   <small aria-hidden="true">{marks[keys[k]]}</small>
                 )}
               </button>
